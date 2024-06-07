@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    <div id="messages"></div>
+    <input type="text" id="message-input" placeholder="Type your message here">
+    <button onclick="sendMessage()">Send</button>
+
+    <table id="data-table">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>IP</th>
+                <th>SID</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data clients -->
+        </tbody>
+    </table>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.js"></script>
+    <script>
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+        });
+
+        socket.on('message', function(msg) {
+            var messages = document.getElementById('messages');
+            var message = document.createElement('div');
+            message.textContent = msg;
+            messages.appendChild(message);
+        });
+
+        socket.on('clients', function(data) {
+            var tableBody = document.querySelector('#data-table tbody');
+            tableBody.innerHTML = '';
+            Object.keys(data).forEach(function(key) {
+                var item = data[key]
+                var row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.username}</td>
+                    <td>${item.ip}</td>
+                    <td>${key}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        });
+
+        function sendMessage() {
+            var input = document.getElementById('message-input');
+            var message = input.value;
+            input.value = '';
+            socket.emit('message', message);
+        }
+        socket.emit('clients');
+    </script>
+</body>
+</html>

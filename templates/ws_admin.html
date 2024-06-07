@@ -1,0 +1,63 @@
+{% extends "layouts/module_admin.html" %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="wsServer">Websocket</a></li>
+{% endblock %}
+
+{% block module %}
+
+<h1>Websocket Server</h1>
+<button class="btn btn-primary" onclick="getClients()">Update</button>
+<table id="data-table" class="table table-hover">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>IP</th>
+            <th>SID</th>
+            <th>Connected</th>
+            <th>Transport</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Data clients -->
+    </tbody>
+</table>
+</ul>
+<script>
+    var sid = ''
+    function sendMessage() {
+        var input = document.getElementById('message-input');
+        var message = input.value;
+        input.value = '';
+        socket.emit('message', message);
+    }
+    function getClients(){
+        socket.emit('clients');    
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        socket.on('connect', function() {
+            sid = socket.id
+        });
+        socket.on('clients', function(data) {
+            var tableBody = document.querySelector('#data-table tbody');
+            tableBody.innerHTML = '';
+            Object.keys(data).forEach(function(key) {
+                var item = data[key]
+                var row = document.createElement('tr');
+                var current = ""
+                if (key == sid)
+                current = '<span class="badge badge-sm bg-success ms-3">current</span>'
+                row.innerHTML = `
+                    <td>${item.username}</td>
+                    <td>${item.ip}</td>
+                    <td>${key}${current}</td>
+                    <td>${item.connected}</td>
+                    <td>${item.transport}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        });
+        getClients()
+    })
+</script>
+{% endblock %}
