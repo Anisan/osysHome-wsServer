@@ -130,7 +130,10 @@ class wsServer(BasePlugin):
         def handleCallMethod(name):
             try:
                 self.logger.debug("Received callMethod: %s", name)
-                callMethod(name)
+                result = callMethod(name)
+                sid = request.sid
+                data ={"name":name,"data":result}
+                self.socketio.emit("resultCallMethod", data, room=sid)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
