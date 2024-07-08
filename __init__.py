@@ -160,12 +160,13 @@ class wsServer(BasePlugin):
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
 
-    def say(self, message, level=0, destination=None):
+    def say(self, message, level=0, image=None, destination=None):
         try:
             for sid, _ in list(self.connected_clients.items()):
                 data = {
                         "message": message,
                         "level": level,
+                        "image": image,
                         "destination": destination,
                 }
                 self.socketio.emit("say", data, room=sid)
