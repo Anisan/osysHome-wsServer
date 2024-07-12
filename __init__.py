@@ -68,6 +68,13 @@ class wsServer(BasePlugin):
         @self.socketio.on("upgrade")
         def handleUpgrade(message):
             self.logger.debug(message)
+
+        @self.socketio.on("restart_system")
+        def handleRestart():
+            self.logger.info("Command restart system from %s",current_user.username)
+            if current_user.role == "admin":
+                from app.admin.tools import restart_system
+                restart_system()    
         
         @self.socketio.on("message")
         def handleMessage(message):
