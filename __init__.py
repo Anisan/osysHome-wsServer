@@ -1,9 +1,10 @@
 """ Websocket module """
-
+import json
 import datetime
 from flask_socketio import SocketIO
 from flask import render_template, request
 from flask_login import current_user
+from app.core.utils import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
 from app.core.lib.object import getObject, callMethod, setProperty
 
@@ -154,9 +155,13 @@ class wsServer(BasePlugin):
             name = obj + "." + prop
             for sid, client in list(self.connected_clients.items()):
                 if name in client["subsProperties"]:
+                    o = getObject(obj)
+                    p = o.properties[prop]
                     message = {
                         "property": name,
                         "value": str(value),
+                        "source": p.source,
+                        "changed": str(p.changed),
                     }
                     self.socketio.emit("changeProperty", message, room=sid)
                     self.logger.debug(message)
@@ -168,6 +173,24 @@ class wsServer(BasePlugin):
                         # cache.set(f"render_{obj}",cache_render,timeout=5)
                     message = {"object": obj, "value": cache_render}
                     self.socketio.emit("changeObject", message, room=sid)
+        except Exception as ex:
+            self.logger.exception(ex, exc_info=True)
+
+    def executedMethod(self, obj, method):
+        try:
+            name = obj + "." + method
+            o = getObject(obj)
+            m = o.methods[method]
+            message = {
+                "method": name,
+                "source": m.source,
+                "executed": str(m.executed),
+                "exec_params": json.dumps(m.exec_params, cls=CustomJSONEncoder),
+                "exec_result": m.exec_result,
+            }
+            self.logger.debug(message)
+            for sid, _ in list(self.connected_clients.items()):
+                self.socketio.emit("executedMethod", message, room=sid)
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
 
