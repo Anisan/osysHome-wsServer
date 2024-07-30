@@ -56,6 +56,7 @@ class wsServer(BasePlugin):
                     "subsProperties": [],
                     "subsObjects": [],
                 }
+                self.sendClient()
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
@@ -66,6 +67,7 @@ class wsServer(BasePlugin):
                     "Client %s(%s) disconnected", request.remote_addr, request.sid
                 )
                 self.connected_clients.pop(request.sid, None)
+                self.sendClient()
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
@@ -91,17 +93,7 @@ class wsServer(BasePlugin):
 
         @self.socketio.on("clients")
         def handleClients():
-            try:
-                self.logger.debug("Get clients")
-                sid = request.sid
-                for _, client in self.connected_clients.items():
-                    client["transport"] = self.socketio.server.transport(request.sid)
-                if current_user.role == "admin":
-                    self.socketio.emit("clients", self.connected_clients, room=sid)
-                else:
-                    self.socketio.emit("clients", {}, room=sid)
-            except Exception as ex:
-                self.logger.exception(ex, exc_info=True)
+            self.sendClient()
 
         # TODO subscribe property
         @self.socketio.on("subscribeProperties")
@@ -149,12 +141,22 @@ class wsServer(BasePlugin):
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
+    def sendClient(self):
+        try:
+            self.logger.debug("Send clients")
+            for sid, client in self.connected_clients.items():
+                client["transport"] = self.socketio.server.transport(sid)
+            for sid, client in list(self.connected_clients.items()):
+                self.socketio.emit("clients", self.connected_clients, room=sid)
+        except Exception as ex:
+            self.logger.exception(ex, exc_info=True)
+
     def changeProperty(self, obj, prop, value):
         try:
             cache_render = None     # cache.get(f"render_{obj}")
             name = obj + "." + prop
             for sid, client in list(self.connected_clients.items()):
-                if name in client["subsProperties"]:
+                if name in client["subsProperties"] or "*" in client["subsProperties"]:
                     o = getObject(obj)
                     p = o.properties[prop]
                     message = {
@@ -165,7 +167,7 @@ class wsServer(BasePlugin):
                     }
                     self.socketio.emit("changeProperty", message, room=sid)
                     self.logger.debug(message)
-                if obj in client["subsObjects"]:
+                if obj in client["subsObjects"] or "*" in client["subsObjects"]:
                     if not cache_render:
                         o = getObject(obj)
                         with self._app.app_context():

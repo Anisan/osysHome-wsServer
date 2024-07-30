@@ -22,9 +22,10 @@
         <!-- Data clients -->
     </tbody>
 </table>
-</ul>
+<div id="messages"></div>
 <script>
     var sid = ''
+    const maxMessages = 100;
     function sendMessage() {
         var input = document.getElementById('message-input');
         var message = input.value;
@@ -34,9 +35,49 @@
     function getClients(){
         socket.emit('clients');    
     }
+    // Функция для добавления сообщения на страницу
+    function addMessage(event, data) {
+        const messagesDiv = document.getElementById('messages');
+        // Создаем новый элемент для сообщения
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message'; // Присваиваем класс для стилей
+        // Создаем элемент для времени
+        const timestampElement = document.createElement('span');
+        timestampElement.className = 'badge bg-secondary'; // Присваиваем класс для стилей
+        const now = new Date();
+        timestampElement.textContent = now.toLocaleTimeString(); // Форматирование времени
+        // Создаем элементы для имени события и данных
+        const eventElement = document.createElement('span');
+        if (event == "say") eventElement.className = 'badge bg-danger';
+        else if (event == "changeProperty") eventElement.className = 'badge bg-success';
+        else if (event == "executedMethod") eventElement.className = 'badge bg-warning';
+        else eventElement.className = 'badge bg-primary';
+        eventElement.textContent = event;
+        const dataElement = document.createElement('span');
+        dataElement.style = "font-size:12px";
+        dataElement.textContent = JSON.stringify(data);
+        // Добавляем элементы к сообщению
+        messageElement.appendChild(timestampElement);
+        messageElement.appendChild(eventElement);
+        messageElement.appendChild(dataElement);
+        // Добавляем сообщение в начало контейнера
+        messagesDiv.insertBefore(messageElement, messagesDiv.firstChild);
+
+        // Удаляем старые сообщения, если их больше указанного
+        const messages = messagesDiv.getElementsByClassName('message');
+        if (messages.length > maxMessages) {
+            messagesDiv.removeChild(messages[messages.length - 1]);
+        }
+    }
     document.addEventListener('DOMContentLoaded', function() {
         socket.on('connect', function() {
-            sid = socket.id
+            sid = socket.id;
+            socket.emit('subscribeProperties',["*"]);
+            socket.emit('subscribeObjects',["*"]);
+        });
+        socket.onAny((eventName, ...args) => {
+            //console.log('Received message:', eventName, args[0]);
+            addMessage(eventName, args[0]);
         });
         socket.on('clients', function(data) {
             var tableBody = document.querySelector('#data-table tbody');
@@ -46,7 +87,7 @@
                 var row = document.createElement('tr');
                 var current = ""
                 if (key == sid)
-                current = '<span class="badge badge-sm bg-success ms-3">current</span>'
+                    current = '<span class="badge badge-sm bg-success ms-3">current</span>'
                 row.innerHTML = `
                     <td>${item.username}</td>
                     <td>${item.ip}</td>
