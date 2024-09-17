@@ -21,7 +21,7 @@ class wsServer(BasePlugin):
         # Dictionary connected clients
         self.connected_clients = {}
         # ws
-        self.socketio = SocketIO(logger=False, engineio_logger=False)
+        self.socketio = SocketIO(app, logger=False, engineio_logger=False, cors_allowed_origins="*")
         self.register_websocket(app)
 
     def initialization(self) -> None:
@@ -56,7 +56,7 @@ class wsServer(BasePlugin):
                     "subsProperties": [],
                     "subsObjects": [],
                 }
-                self.sendClient()
+                self.sendClientsInfo()
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
@@ -67,7 +67,7 @@ class wsServer(BasePlugin):
                     "Client %s(%s) disconnected", request.remote_addr, request.sid
                 )
                 self.connected_clients.pop(request.sid, None)
-                self.sendClient()
+                self.sendClientsInfo()
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
@@ -93,7 +93,7 @@ class wsServer(BasePlugin):
 
         @self.socketio.on("clients")
         def handleClients():
-            self.sendClient()
+            self.sendClientsInfo()
 
         # TODO subscribe property
         @self.socketio.on("subscribeProperties")
@@ -103,9 +103,21 @@ class wsServer(BasePlugin):
                 if request.sid in self.connected_clients:
                     client = self.connected_clients[request.sid]
                     sub = client["subsProperties"]
-                    for prop in subsList:
-                        if prop not in sub:
-                            sub.append(prop)
+                    for obj_prop in subsList:
+                        if obj_prop not in sub:
+                            sub.append(obj_prop)
+                            obj = obj_prop.split(".")[0]
+                            prop = obj_prop.split(".")[1]
+                            o = getObject(obj)
+                            p = o.properties[prop]
+                            message = {
+                                "property": obj_prop,
+                                "value": str(p.value),
+                                "source": p.source,
+                                "changed": str(p.changed),
+                            }
+                            self.socketio.emit("changeProperty", message, room=request.sid)
+                    self.socketio.emit("subscribedProperties", subsList, room=request.sid)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
@@ -123,25 +135,29 @@ class wsServer(BasePlugin):
                 self.logger.exception(ex, exc_info=True)
 
         @self.socketio.on("setProperty")
-        def handleSetProperty(name, value):
+        def handleSetProperty(name, value, source="WS"):
             try:
-                self.logger.debug("Received setProperty: %s=%s", name, value)
-                setProperty(name, value, "WS")
+                if not source:
+                    source = "WS"
+                self.logger.debug("Received setProperty: %s=%s (source: %s)", name, value, source)
+                setProperty(name, value, source)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
         @self.socketio.on("callMethod")
-        def handleCallMethod(name):
+        def handleCallMethod(name, source="WS"):
             try:
-                self.logger.debug("Received callMethod: %s", name)
-                result = callMethod(name)
+                if not source:
+                    source = "WS"
+                self.logger.debug("Received callMethod: %s (source: %s)", name, source)
+                result = callMethod(name, source=source)
                 sid = request.sid
                 data = {"name": name, "data": result}
                 self.socketio.emit("resultCallMethod", data, room=sid)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
-    def sendClient(self):
+    def sendClientsInfo(self):
         try:
             self.logger.debug("Send clients")
             for sid, client in self.connected_clients.items():
@@ -203,3 +219,21 @@ class wsServer(BasePlugin):
                 self.socketio.emit("say", data, room=sid)
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
+
+    def sendCommand(self, command, data, client_id=None) -> bool:
+        """Send command to websocket
+        Args:
+            command (str): Command
+            data (any): Data
+            client_id(str): Client ID (None - send all)
+        Returns:
+            bool: Success
+        """
+        try:
+            for sid, _ in list(self.connected_clients.items()):
+                if client_id is None or sid == client_id:
+                    self.socketio.emit(command, data, room=sid)
+            return True
+        except Exception as ex:
+            self.logger.exception(ex, exc_info=True)
+            return False
