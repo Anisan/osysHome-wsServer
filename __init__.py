@@ -106,6 +106,8 @@ class wsServer(BasePlugin):
                     for obj_prop in subsList:
                         if obj_prop not in sub:
                             sub.append(obj_prop)
+                            if obj_prop == '*':
+                                continue
                             obj = obj_prop.split(".")[0]
                             prop = obj_prop.split(".")[1]
                             o = getObject(obj)
