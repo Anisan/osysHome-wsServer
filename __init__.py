@@ -55,6 +55,7 @@ class wsServer(BasePlugin):
                     "transport": self.socketio.server.transport(request.sid),
                     "subsProperties": [],
                     "subsObjects": [],
+                    "subsData": [],
                 }
                 self.sendClientsInfo()
             except Exception as ex:
@@ -81,7 +82,8 @@ class wsServer(BasePlugin):
             if current_user.role == "admin":
                 from app.admin.tools import restart_system
 
-                restart_system()
+                res = restart_system()
+                self.logger.info(res)
 
         @self.socketio.on("message")
         def handleMessage(message):
@@ -130,6 +132,19 @@ class wsServer(BasePlugin):
                 if request.sid in self.connected_clients:
                     client = self.connected_clients[request.sid]
                     sub = client["subsObjects"]
+                    for prop in subsList:
+                        if prop not in sub:
+                            sub.append(prop)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
+        @self.socketio.on("subscribeData")
+        def handleSubscribeData(subsList):
+            try:
+                self.logger.debug("Received subscribe: %s", str(subsList))
+                if request.sid in self.connected_clients:
+                    client = self.connected_clients[request.sid]
+                    sub = client["subsData"]
                     for prop in subsList:
                         if prop not in sub:
                             sub.append(prop)
@@ -221,6 +236,23 @@ class wsServer(BasePlugin):
                 self.socketio.emit("say", data, room=sid)
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
+
+    def sendData(self, typeData, data) -> bool:
+        """Send data to websocket
+        Args:
+            typeData (str): Type data
+            data (any): Data
+        Returns:
+            bool: Success
+        """
+        try:
+            for sid, client in list(self.connected_clients.items()):
+                if typeData in client["subsData"] or "*" in client["subsData"]:
+                    self.socketio.emit(typeData, data, room=sid)
+            return True
+        except Exception as ex:
+            self.logger.exception(ex, exc_info=True)
+            return False
 
     def sendCommand(self, command, data, client_id=None) -> bool:
         """Send command to websocket

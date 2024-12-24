@@ -50,6 +50,7 @@
         const eventElement = document.createElement('span');
         if (event == "say") eventElement.className = 'badge bg-danger';
         else if (event == "changeProperty") eventElement.className = 'badge bg-success';
+        else if (event == "changeObject") eventElement.className = 'badge bg-info';
         else if (event == "executedMethod") eventElement.className = 'badge bg-warning';
         else eventElement.className = 'badge bg-primary';
         eventElement.textContent = event;
@@ -74,6 +75,7 @@
             sid = socket.id;
             socket.emit('subscribeProperties',["*"]);
             socket.emit('subscribeObjects',["*"]);
+            socket.emit('subscribeData',["*"]);
         });
         socket.onAny((eventName, ...args) => {
             //console.log('Received message:', eventName, args[0]);
@@ -99,6 +101,9 @@
             });
         });
         getClients()
+        socket.emit('subscribeProperties',["*"]);
+        socket.emit('subscribeObjects',["*"]);
+        socket.emit('subscribeData',["*"]);
     })
 </script>
 {% endblock %}
