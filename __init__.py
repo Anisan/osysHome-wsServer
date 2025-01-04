@@ -162,15 +162,16 @@ class wsServer(BasePlugin):
                 self.logger.exception(ex, exc_info=True)
 
         @self.socketio.on("callMethod")
-        def handleCallMethod(name, source="WS"):
+        def handleCallMethod(name, source="WS", sendResult=False):
             try:
                 if not source:
                     source = "WS"
                 self.logger.debug("Received callMethod: %s (source: %s)", name, source)
                 result = callMethod(name, source=source)
-                sid = request.sid
-                data = {"name": name, "data": result}
-                self.socketio.emit("resultCallMethod", data, room=sid)
+                if sendResult:
+                    sid = request.sid
+                    data = {"name": name, "data": result}
+                    self.socketio.emit("resultCallMethod", data, room=sid)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
