@@ -105,13 +105,18 @@ class wsServer(BasePlugin):
                 if request.sid in self.connected_clients:
                     client = self.connected_clients[request.sid]
                     sub = client["subsProperties"]
+                    subscribed = []
                     for obj_prop in subsList:
                         if obj_prop not in sub:
-                            sub.append(obj_prop)
                             if obj_prop == '*':
                                 continue
-                            obj = obj_prop.split(".")[0]
-                            prop = obj_prop.split(".")[1]
+                            split = obj_prop.split(".")
+                            if len(split) != 2:
+                                continue
+                            sub.append(obj_prop)
+                            subscribed.append(obj_prop)
+                            obj = split[0]
+                            prop = split[1]
                             o = getObject(obj)
                             p = o.properties[prop]
                             message = {
@@ -121,7 +126,7 @@ class wsServer(BasePlugin):
                                 "changed": str(p.changed),
                             }
                             self.socketio.emit("changeProperty", message, room=request.sid)
-                    self.socketio.emit("subscribedProperties", subsList, room=request.sid)
+                    self.socketio.emit("subscribedProperties", subscribed, room=request.sid)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
