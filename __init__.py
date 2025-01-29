@@ -126,6 +126,9 @@ class wsServer(BasePlugin):
                                 "changed": str(p.changed),
                             }
                             self.socketio.emit("changeProperty", message, room=request.sid)
+                        else:
+                            subscribed.append(obj_prop)
+
                     self.socketio.emit("subscribedProperties", subscribed, room=request.sid)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
