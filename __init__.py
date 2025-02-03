@@ -121,7 +121,7 @@ class wsServer(BasePlugin):
                             p = o.properties[prop]
                             message = {
                                 "property": obj_prop,
-                                "value": str(p.value),
+                                "value": str(p.value) if isinstance(p.value, datetime.datetime) else p.value,
                                 "source": p.source,
                                 "changed": str(p.changed),
                             }
@@ -203,7 +203,7 @@ class wsServer(BasePlugin):
                     p = o.properties[prop]
                     message = {
                         "property": name,
-                        "value": str(value),
+                        "value": str(value) if isinstance(value, datetime.datetime) else value,
                         "source": p.source,
                         "changed": str(p.changed),
                     }
