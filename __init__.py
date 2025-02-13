@@ -1,13 +1,12 @@
 """ Websocket module """
 import json
 import datetime
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, ConnectionRefusedError, Namespace
 from flask import render_template, request
 from flask_login import current_user
 from app.core.utils import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
 from app.core.lib.object import getObject, callMethod, setProperty
-
 
 class wsServer(BasePlugin):
     """Websocket Server module"""
@@ -23,6 +22,7 @@ class wsServer(BasePlugin):
         # ws
         self.socketio = SocketIO(app, logger=False, engineio_logger=False, cors_allowed_origins="*")
         self.register_websocket(app)
+        
 
     def initialization(self) -> None:
         pass
@@ -43,7 +43,7 @@ class wsServer(BasePlugin):
         def handleConnect():
             try:
                 if not current_user.is_authenticated:
-                    return False
+                    raise ConnectionRefusedError('Unauthorized')
                 self.logger.debug(
                     "Client %s(%s) connected", request.remote_addr, request.sid
                 )
@@ -53,6 +53,7 @@ class wsServer(BasePlugin):
                     "ip": request.remote_addr,
                     "connected": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "transport": self.socketio.server.transport(request.sid),
+                    "stats":{"recvBytes":0, "sentBytes":0},
                     "subsProperties": [],
                     "subsObjects": [],
                     "subsData": [],
@@ -72,6 +73,8 @@ class wsServer(BasePlugin):
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
+
+
         @self.socketio.on("upgrade")
         def handleUpgrade(message):
             self.logger.debug(message)
@@ -85,21 +88,15 @@ class wsServer(BasePlugin):
                 res = restart_system()
                 self.logger.info(res)
 
-        @self.socketio.on("message")
-        def handleMessage(message):
-            try:
-                self.logger.debug("Received message: %s", message)
-                self.socketio.emit("message", message)
-            except Exception as ex:
-                self.logger.exception(ex, exc_info=True)
-
         @self.socketio.on("clients")
         def handleClients():
+            self.incrementRecv(request.sid,"clients")
             self.sendClientsInfo()
 
         # TODO subscribe property
         @self.socketio.on("subscribeProperties")
         def handleSubscribeProperties(subsList):
+            self.incrementRecv(request.sid,"subscribeProperties",subsList)
             try:
                 self.logger.debug("Received subscribe: %s", str(subsList))
                 if request.sid in self.connected_clients:
@@ -109,25 +106,17 @@ class wsServer(BasePlugin):
                     for obj_prop in subsList:
                         if obj_prop not in sub:
                             if obj_prop == '*':
+                                sub.append(obj_prop)
                                 continue
                             split = obj_prop.split(".")
                             if len(split) != 2:
                                 continue
                             sub.append(obj_prop)
                             subscribed.append(obj_prop)
-                            obj = split[0]
-                            prop = split[1]
-                            o = getObject(obj)
-                            p = o.properties[prop]
-                            message = {
-                                "property": obj_prop,
-                                "value": str(p.value) if isinstance(p.value, datetime.datetime) else p.value,
-                                "source": p.source,
-                                "changed": str(p.changed),
-                            }
-                            self.socketio.emit("changeProperty", message, room=request.sid)
+                            self.sendProperty(request.sid, obj_prop)
                         else:
                             subscribed.append(obj_prop)
+                            self.sendProperty(request.sid, obj_prop)
 
                     self.socketio.emit("subscribedProperties", subscribed, room=request.sid)
             except Exception as ex:
@@ -135,6 +124,7 @@ class wsServer(BasePlugin):
 
         @self.socketio.on("subscribeObjects")
         def handleSubscribeObjects(subsList):
+            self.incrementRecv(request.sid,"subscribeObjects",subsList)
             try:
                 self.logger.debug("Received subscribe: %s", str(subsList))
                 if request.sid in self.connected_clients:
@@ -148,6 +138,7 @@ class wsServer(BasePlugin):
 
         @self.socketio.on("subscribeData")
         def handleSubscribeData(subsList):
+            self.incrementRecv(request.sid,"subscribeData",subsList)
             try:
                 self.logger.debug("Received subscribe: %s", str(subsList))
                 if request.sid in self.connected_clients:
@@ -161,9 +152,11 @@ class wsServer(BasePlugin):
 
         @self.socketio.on("setProperty")
         def handleSetProperty(name, value, source="WS"):
+            self.incrementRecv(request.sid,"setProperty",value)
             try:
                 if not source:
                     source = "WS"
+                source = f'{source}:{current_user.username}'
                 self.logger.debug("Received setProperty: %s=%s (source: %s)", name, value, source)
                 setProperty(name, value, source)
             except Exception as ex:
@@ -171,9 +164,11 @@ class wsServer(BasePlugin):
 
         @self.socketio.on("callMethod")
         def handleCallMethod(name, source="WS", sendResult=False):
+            self.incrementRecv(request.sid,"callMethod")
             try:
                 if not source:
                     source = "WS"
+                source = f'{source}:{current_user.username}'
                 self.logger.debug("Received callMethod: %s (source: %s)", name, source)
                 result = callMethod(name, source=source)
                 if sendResult:
@@ -182,6 +177,57 @@ class wsServer(BasePlugin):
                     self.socketio.emit("resultCallMethod", data, room=sid)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
+
+        # Модификация метода emit для подсчета отправленных байт
+        original_emit = self.socketio.emit
+
+        def custom_emit(*args, **kwargs):
+            """Модифицированный emit для подсчета отправленных байт."""
+            client_id = kwargs.get('room')  # Получаем ID клиента (если указано)
+            
+            # Если клиент указан и он существует в статистике
+            if client_id and client_id in self.connected_clients:
+                # Подсчитываем размер данных
+                data_to_send = args[1:] if len(args) > 1 else args[0]
+                sent_bytes = sum(len(str(d).encode('utf-8')) for d in data_to_send if d is not None)
+                
+                # Обновляем счетчик отправленных байт
+                self.connected_clients[client_id]['stats']['sentBytes'] += sent_bytes
+            
+            # Вызываем оригинальный emit
+            return original_emit(*args, **kwargs)
+        
+        self.socketio.emit = custom_emit
+
+    def incrementRecv(self, client_id, message, data=None):
+        # Если клиент указан и он существует в статистике
+        if client_id and client_id in self.connected_clients:
+            # Подсчитываем размер данных
+            length_data = len(message)
+            if data:
+                length_data += len(str(data).encode('utf-8'))
+            # Обновляем счетчик полученных байт
+            self.connected_clients[client_id]['stats']['recvBytes'] += length_data
+
+    def sendProperty(self, sid, obj_prop):
+        split = obj_prop.split(".")
+        if len(split) != 2:
+            return False
+        obj = split[0]
+        prop = split[1]
+        o = getObject(obj)
+        if o:
+            if prop in o.properties:
+                p = o.properties[prop]
+                message = {
+                    "property": obj_prop,
+                    "value": str(p.value) if isinstance(p.value, datetime.datetime) else p.value,
+                    "source": p.source,
+                    "changed": str(p.changed),
+                }
+                self.socketio.emit("changeProperty", message, room=sid)
+                return True
+        return False
 
     def sendClientsInfo(self):
         try:
