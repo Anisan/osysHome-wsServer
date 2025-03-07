@@ -1,7 +1,7 @@
 """ Websocket module """
 import json
 import datetime
-from flask_socketio import SocketIO, ConnectionRefusedError, Namespace
+from flask_socketio import SocketIO, ConnectionRefusedError
 from flask import render_template, request
 from flask_login import current_user
 from app.core.utils import CustomJSONEncoder
@@ -22,18 +22,12 @@ class wsServer(BasePlugin):
         # ws
         self.socketio = SocketIO(app, logger=False, engineio_logger=False, cors_allowed_origins="*")
         self.register_websocket(app)
-        
 
     def initialization(self) -> None:
         pass
 
     def admin(self, request) -> str:
         return render_template("ws_admin.html")
-
-    def route_test(self):
-        @self.blueprint.route("/ws_test")
-        def wsTest():
-            return render_template("ws_test.html")
 
     def register_websocket(self, app):
         """Register websocket in app"""
@@ -72,8 +66,6 @@ class wsServer(BasePlugin):
                 self.sendClientsInfo()
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
-
-
 
         @self.socketio.on("upgrade")
         def handleUpgrade(message):
@@ -184,19 +176,19 @@ class wsServer(BasePlugin):
         def custom_emit(*args, **kwargs):
             """Модифицированный emit для подсчета отправленных байт."""
             client_id = kwargs.get('room')  # Получаем ID клиента (если указано)
-            
+
             # Если клиент указан и он существует в статистике
             if client_id and client_id in self.connected_clients:
                 # Подсчитываем размер данных
                 data_to_send = args[1:] if len(args) > 1 else args[0]
                 sent_bytes = sum(len(str(d).encode('utf-8')) for d in data_to_send if d is not None)
-                
+
                 # Обновляем счетчик отправленных байт
                 self.connected_clients[client_id]['stats']['sentBytes'] += sent_bytes
-            
+
             # Вызываем оригинальный emit
             return original_emit(*args, **kwargs)
-        
+
         self.socketio.emit = custom_emit
 
     def incrementRecv(self, client_id, message, data=None):
