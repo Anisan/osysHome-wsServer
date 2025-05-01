@@ -4,9 +4,10 @@ import datetime
 from flask_socketio import SocketIO, ConnectionRefusedError
 from flask import render_template, request
 from flask_login import current_user
+from app.database import convert_utc_to_local
 from app.core.utils import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
-from app.core.lib.object import getObject, callMethod, setProperty
+from app.core.lib.object import getObject, callMethod, setProperty, getProperty
 
 class wsServer(BasePlugin):
     """Websocket Server module"""
@@ -45,7 +46,7 @@ class wsServer(BasePlugin):
                 self.connected_clients[request.sid] = {
                     "username": current_user.username,
                     "ip": request.remote_addr,
-                    "connected": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "connected": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     "transport": self.socketio.server.transport(request.sid),
                     "stats":{"recvBytes":0, "sentBytes":0},
                     "subsProperties": [],
@@ -148,7 +149,6 @@ class wsServer(BasePlugin):
             try:
                 if not source:
                     source = "WS"
-                source = f'{source}:{current_user.username}'
                 self.logger.debug("Received setProperty: %s=%s (source: %s)", name, value, source)
                 setProperty(name, value, source)
             except Exception as ex:
@@ -160,7 +160,6 @@ class wsServer(BasePlugin):
             try:
                 if not source:
                     source = "WS"
-                source = f'{source}:{current_user.username}'
                 self.logger.debug("Received callMethod: %s (source: %s)", name, source)
                 result = callMethod(name, source=source)
                 if sendResult:
@@ -210,12 +209,14 @@ class wsServer(BasePlugin):
         o = getObject(obj)
         if o:
             if prop in o.properties:
+                username = self.connected_clients[sid]['username']
+                timezone = getProperty(f"{username}.timezone")
                 p = o.properties[prop]
                 message = {
                     "property": obj_prop,
                     "value": str(p.value) if isinstance(p.value, datetime.datetime) else p.value,
                     "source": p.source,
-                    "changed": str(p.changed),
+                    "changed": str(convert_utc_to_local(p.changed, timezone)),
                 }
                 self.socketio.emit("changeProperty", message, room=sid)
                 return True
@@ -239,11 +240,13 @@ class wsServer(BasePlugin):
                 if name in client["subsProperties"] or "*" in client["subsProperties"]:
                     o = getObject(obj)
                     p = o.properties[prop]
+                    username = client["username"]
+                    timezone = getProperty(f"{username}.timezone")
                     message = {
                         "property": name,
                         "value": str(value) if isinstance(value, datetime.datetime) else value,
                         "source": p.source,
-                        "changed": str(p.changed),
+                        "changed": str(convert_utc_to_local(p.changed, timezone)),
                     }
                     self.socketio.emit("changeProperty", message, room=sid)
                     self.logger.debug(message)
@@ -271,7 +274,10 @@ class wsServer(BasePlugin):
                 "exec_result": m.exec_result,
             }
             self.logger.debug(message)
-            for sid, _ in list(self.connected_clients.items()):
+            for sid, client in list(self.connected_clients.items()):
+                username = client["username"]
+                timezone = getProperty(f"{username}.timezone")
+                message["executed"] = str(convert_utc_to_local(m.executed, timezone))
                 self.socketio.emit("executedMethod", message, room=sid)
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
@@ -293,9 +299,22 @@ class wsServer(BasePlugin):
             bool: Success
         """
         try:
+            def dict_format(data, timezone):
+                if isinstance(data, dict):
+                    for key in data.keys():
+                        if isinstance(data[key], dict):
+                            data[key] = dict_format(data[key], timezone)
+                        elif isinstance(data[key], datetime.datetime):
+                            data[key] = str(convert_utc_to_local(data[key],timezone))
+                return data
+
             for sid, client in list(self.connected_clients.items()):
+                payload = data
+                username = client["username"]
+                timezone = getProperty(f"{username}.timezone")
+                payload = dict_format(payload, timezone)
                 if typeData in client["subsData"] or "*" in client["subsData"]:
-                    self.socketio.emit(typeData, data, room=sid)
+                    self.socketio.emit(typeData, payload, room=sid)
             return True
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
