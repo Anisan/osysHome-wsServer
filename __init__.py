@@ -4,7 +4,7 @@ import datetime
 from flask_socketio import SocketIO, ConnectionRefusedError
 from flask import render_template, request
 from flask_login import current_user
-from app.database import convert_utc_to_local
+from app.database import convert_utc_to_local, get_now_to_utc
 from app.core.utils import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
 from app.core.lib.object import getObject, callMethod, setProperty, getProperty
@@ -46,7 +46,7 @@ class wsServer(BasePlugin):
                 self.connected_clients[request.sid] = {
                     "username": current_user.username,
                     "ip": request.remote_addr,
-                    "connected": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "connected": get_now_to_utc().strftime("%Y-%m-%d %H:%M:%S"),
                     "transport": self.socketio.server.transport(request.sid),
                     "stats":{"recvBytes":0, "sentBytes":0},
                     "subsProperties": [],
