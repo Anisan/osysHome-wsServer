@@ -52,6 +52,7 @@ class wsServer(BasePlugin):
                     "subsProperties": [],
                     "subsObjects": [],
                     "subsData": [],
+                    "subsActions": [],
                 }
                 self.sendClientsInfo()
             except Exception as ex:
@@ -123,6 +124,20 @@ class wsServer(BasePlugin):
                 if request.sid in self.connected_clients:
                     client = self.connected_clients[request.sid]
                     sub = client["subsObjects"]
+                    for prop in subsList:
+                        if prop not in sub:
+                            sub.append(prop)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
+        @self.socketio.on("subscribeActions")
+        def handleSubscribeActions(subsList):
+            self.incrementRecv(request.sid,"subscribeActions",subsList)
+            try:
+                self.logger.debug("Received subscribe actions: %s", str(subsList))
+                if request.sid in self.connected_clients:
+                    client = self.connected_clients[request.sid]
+                    sub = client["subsActions"]
                     for prop in subsList:
                         if prop not in sub:
                             sub.append(prop)
@@ -275,6 +290,8 @@ class wsServer(BasePlugin):
             }
             self.logger.debug(message)
             for sid, client in list(self.connected_clients.items()):
+                if "executedMethod" not in client["subsActions"]:
+                    continue
                 username = client["username"]
                 timezone = getProperty(f"{username}.timezone")
                 message["executed"] = str(convert_utc_to_local(m.executed, timezone))
@@ -284,7 +301,9 @@ class wsServer(BasePlugin):
 
     def say(self, message, level=0, args=None):
         try:
-            for sid, _ in list(self.connected_clients.items()):
+            for sid, client in list(self.connected_clients.items()):
+                if "say" not in client["subsActions"]:
+                    continue
                 data = {"message": message, "level": level, "args": args}
                 self.socketio.emit("say", data, room=sid)
         except Exception as ex:
