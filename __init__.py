@@ -1,13 +1,18 @@
 """ Websocket module """
+import os
 import json
 import datetime
 from flask_socketio import SocketIO, ConnectionRefusedError
-from flask import render_template, request
+from app.authentication.handlers import handle_user_required
+
+from flask import render_template, request, send_file, abort
 from flask_login import current_user
 from app.database import convert_utc_to_local, get_now_to_utc
 from app.core.utils import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
 from app.core.lib.object import getObject, callMethod, setProperty, getProperty
+from app.extensions import cache
+
 
 class wsServer(BasePlugin):
     """Websocket Server module"""
@@ -17,7 +22,7 @@ class wsServer(BasePlugin):
         self.title = "Websocket"
         self.description = """Websocket server (SocketIO)"""
         self.category = "System"
-        self.actions = ["say", "proxy"]
+        self.actions = ["say", "proxy", "playsound"]
         # Dictionary connected clients
         self.connected_clients = {}
         # ws
@@ -308,6 +313,30 @@ class wsServer(BasePlugin):
                 self.socketio.emit("say", data, room=sid)
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
+
+    def playSound(self, file_name:str, level:int=0):
+        try:
+            for sid, client in list(self.connected_clients.items()):
+                if "playsound" not in client["subsActions"]:
+                    continue
+                file_url = os.path.basename(file_name)
+                cache.set("ws:cache:" + file_url, file_name)
+                file_url = "/sound/" + os.path.basename(file_name)
+                data = {"file_url": file_url, "level": level}
+                self.socketio.emit("playsound", data, room=sid)
+        except Exception as ex:
+            self.logger.exception(ex, exc_info=True)
+
+    def route_index(self):
+        @self.blueprint.route('/sound/<path:filename>', methods=["GET"])
+        @handle_user_required
+        def avatars(filename):
+            file_path = cache.get("ws:cache:" + filename)
+            if not file_path:
+                abort(404, description="File not found in cache")
+            from settings import Config
+            full_path = os.path.join(Config.APP_DIR,file_path)
+            return send_file(full_path)
 
     def sendData(self, typeData, data) -> bool:
         """Send data to websocket
