@@ -1,0 +1,114 @@
+<h3><a href="admin/wsServer"><img class="me-2" height="30px" src="/wsServer/static/wsServer.png">{{ _('Websocket')}}</a></h3>
+<h5>{{ _('Clients')}} <small class="text-muted" id="count">(0)</small></h5>
+
+<script>
+    var sid = '';
+    var refreshInterval = 3000;
+    
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + 'B';
+        return (bytes / 1024).toFixed(0) + 'K';
+    }
+    
+    function getClients() {
+        socket.emit('clients');    
+    }
+    
+    function getActionIcons(actions) {
+        if (!actions || actions.length === 0) return '';
+        
+        const icons = {
+            'executedMethod': 'fas fa-code',
+            'say': 'fas fa-comment-alt',
+            'playsound': 'fas fa-volume-up'
+        };
+        
+        let result = '';
+        actions.forEach(action => {
+            if (icons[action]) {
+                result += `<i class="${icons[action]} text-primary mx-1" title="${action}"></i>`;
+            }
+        });
+        
+        return result ? `<span class="action-icons">${result}</span>` : '';
+    }
+    
+    function getCountBadge(count, icon) {
+        if (count === 0) return '';
+        if (count === '*' || count > 999) {
+            return `<span class="badge bg-danger ms-1" title="All items">
+                <i class="${icon}"></i> *
+            </span>`;
+        }
+        return `<span class="badge bg-secondary ms-1">
+            <i class="${icon}"></i> ${count}
+        </span>`;
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        sid = socket.id;
+        setInterval(getClients, refreshInterval);
+        
+        socket.on('connect', function() {
+            sid = socket.id;
+            // Запускаем периодическое обновление
+            setInterval(getClients, refreshInterval);
+        });
+        
+        socket.on('clients', function(data) {
+            var list = document.getElementById('clients-list');
+            list.innerHTML = '';
+            document.getElementById('count').textContent = `(${Object.keys(data).length})`;
+            
+            Object.keys(data).forEach(function(key) {
+                var item = data[key];
+                var current = (key == sid) ? '<span class="badge bg-success ms-1">you</span>' : '';
+                var traffic = item.stats ? `↑${formatBytes(item.stats.sentBytes)} ↓${formatBytes(item.stats.recvBytes)}` : '';
+                
+                // Подписки
+                var propsCount = item.subsProperties?.includes('*') ? '*' : (item.subsProperties?.length || 0);
+                var objectsCount = item.subsObjects?.includes('*') ? '*' : (item.subsObjects?.length || 0);
+                
+                var actionIcons = getActionIcons(item.subsActions);
+                var propsBadge = getCountBadge(propsCount, 'fas fa-file-alt');
+                var objectsBadge = getCountBadge(objectsCount, 'fas fa-cube');
+                
+                var li = document.createElement('div');
+                li.className = 'd-flex justify-content-between align-items-center py-1 px-2 border-bottom';
+                li.innerHTML = `
+                    <div class="text-truncate" style="max-width: 40%">
+                        <strong>${item.username || 'anon'}</strong>
+                        <small class="text-muted">@${item.ip}</small>
+                        ${current}
+                    </div>
+                    <div class="d-flex align-items-center">
+                        ${propsBadge}
+                        ${objectsBadge}
+                        ${actionIcons}
+                        <small class="text-muted ms-2 me-2">${traffic}</small>
+                        <small class="text-muted ms-2">${key.substring(0, 6)}...</small>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        });
+        
+        getClients();
+    });
+</script>
+
+<style>
+    .action-icons {
+        display: inline-flex;
+        gap: 3px;
+        margin: 0 5px;
+    }
+    .action-icons i {
+        font-size: 0.9rem;
+    }
+    .badge i {
+        margin-right: 2px;
+    }
+</style>
+
+<div id="clients-list" class="small mb-3"></div>

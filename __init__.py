@@ -22,7 +22,8 @@ class wsServer(BasePlugin):
         self.title = "Websocket"
         self.description = """Websocket server (SocketIO)"""
         self.category = "System"
-        self.actions = ["say", "proxy", "playsound"]
+        self.version = "1.0"
+        self.actions = ["say", "proxy", "playsound", "widget"]
         # Dictionary connected clients
         self.connected_clients = {}
         # ws
@@ -34,6 +35,9 @@ class wsServer(BasePlugin):
 
     def admin(self, request) -> str:
         return render_template("ws_admin.html")
+    
+    def widget(self):
+        return render_template("widget_ws.html")
 
     def register_websocket(self, app):
         """Register websocket in app"""
@@ -90,7 +94,7 @@ class wsServer(BasePlugin):
         @self.socketio.on("clients")
         def handleClients():
             self.incrementRecv(request.sid,"clients")
-            self.sendClientsInfo()
+            self.sendClientsInfo(request.sid)
 
         # TODO subscribe property
         @self.socketio.on("subscribeProperties")
@@ -242,11 +246,14 @@ class wsServer(BasePlugin):
                 return True
         return False
 
-    def sendClientsInfo(self):
+    def sendClientsInfo(self, room=None):
         try:
             self.logger.debug("Send clients")
             for sid, client in self.connected_clients.items():
                 client["transport"] = self.socketio.server.transport(sid)
+            if room:
+                self.socketio.emit("clients", self.connected_clients, room=room)
+                return
             for sid, client in list(self.connected_clients.items()):
                 self.socketio.emit("clients", self.connected_clients, room=sid)
         except Exception as ex:
