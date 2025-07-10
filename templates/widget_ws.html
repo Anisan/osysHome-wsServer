@@ -32,6 +32,18 @@
         
         return result ? `<span class="action-icons">${result}</span>` : '';
     }
+
+    function getDataIcons(data) {
+        if (!data || data.length === 0) return '';
+        
+        let result = '';
+        data.forEach(item => {
+            result += `<img src="/${item}/static/${item}.png" height="24px" title="${item}" onerror="this.src='/static/assets/images/module.png'">`;
+
+        });
+        
+        return result ? `<span class="action-icons">${result}</span>` : '';
+    }
     
     function getCountBadge(count, icon) {
         if (count === 0) return '';
@@ -72,6 +84,7 @@
                 var actionIcons = getActionIcons(item.subsActions);
                 var propsBadge = getCountBadge(propsCount, 'fas fa-file-alt');
                 var objectsBadge = getCountBadge(objectsCount, 'fas fa-cube');
+                var dataIcons = getDataIcons(item.subsData);
                 
                 var li = document.createElement('div');
                 li.className = 'd-flex justify-content-between align-items-center py-1 px-2 border-bottom';
@@ -85,6 +98,7 @@
                         ${propsBadge}
                         ${objectsBadge}
                         ${actionIcons}
+                        ${dataIcons}
                         <small class="text-muted ms-2 me-2">${traffic}</small>
                         <small class="text-muted ms-2">${key.substring(0, 6)}...</small>
                     </div>
