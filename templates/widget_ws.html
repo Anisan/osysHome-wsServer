@@ -45,14 +45,14 @@
         return result ? `<span class="action-icons">${result}</span>` : '';
     }
     
-    function getCountBadge(count, icon) {
+    function getCountBadge(count, icon, title) {
         if (count === 0) return '';
         if (count === '*' || count > 999) {
-            return `<span class="badge bg-danger ms-1" title="All items">
+            return `<span class="badge bg-danger ms-1" title="${title}">
                 <i class="${icon}"></i> *
             </span>`;
         }
-        return `<span class="badge bg-secondary ms-1">
+        return `<span class="badge bg-secondary ms-1" title="${title}">
             <i class="${icon}"></i> ${count}
         </span>`;
     }
@@ -82,8 +82,8 @@
                 var objectsCount = item.subsObjects?.includes('*') ? '*' : (item.subsObjects?.length || 0);
                 
                 var actionIcons = getActionIcons(item.subsActions);
-                var propsBadge = getCountBadge(propsCount, 'fas fa-file-alt');
-                var objectsBadge = getCountBadge(objectsCount, 'fas fa-cube');
+                var propsBadge = getCountBadge(propsCount, 'fas fa-file-alt', "Properties");
+                var objectsBadge = getCountBadge(objectsCount, 'fas fa-cube', "Objects");
                 var dataIcons = getDataIcons(item.subsData);
                 
                 var li = document.createElement('div');

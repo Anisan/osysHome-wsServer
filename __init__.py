@@ -321,7 +321,7 @@ class wsServer(BasePlugin):
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
 
-    def playSound(self, file_name:str, level:int=0):
+    def playSound(self, file_name:str, level:int=0, args=None):
         try:
             for sid, client in list(self.connected_clients.items()):
                 if "playsound" not in client["subsActions"]:
@@ -329,7 +329,7 @@ class wsServer(BasePlugin):
                 file_url = os.path.basename(file_name)
                 cache.set("ws:cache:" + file_url, file_name)
                 file_url = "/sound/" + os.path.basename(file_name)
-                data = {"file_url": file_url, "level": level}
+                data = {"file_url": file_url, "level": level, "args": args}
                 self.socketio.emit("playsound", data, room=sid)
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
