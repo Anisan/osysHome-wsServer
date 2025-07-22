@@ -1,4 +1,6 @@
 {
+  "Clients": "Клиенты",
   "Connected": "Подключен",
-  "Transport": "Транспорт"
+  "Transport": "Транспорт",
+  "Websocket": "Вебсокет"
 }
