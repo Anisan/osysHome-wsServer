@@ -299,6 +299,7 @@ class wsServer(BasePlugin):
                 "executed": str(m.executed),
                 "exec_params": json.dumps(m.exec_params, cls=CustomJSONEncoder),
                 "exec_result": m.exec_result,
+                "exec_time":m.exec_time,
             }
             self.logger.debug(message)
             for sid, client in list(self.connected_clients.items()):
