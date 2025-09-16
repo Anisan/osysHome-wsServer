@@ -224,6 +224,16 @@ class wsServer(BasePlugin):
             # Обновляем счетчик полученных байт
             self.connected_clients[client_id]['stats']['recvBytes'] += length_data
 
+    def _getTimezone(self, username):
+        if username:
+            timezone = cache.get(f"{username}.timezone")
+            if not timezone:
+                timezone = getProperty(f"{username}.timezone")
+                if timezone:
+                    cache.set(f"{username}.timezone", timezone, timeout=3600)
+            return timezone
+        return 'UTC'
+
     def sendProperty(self, sid, obj_prop):
         split = obj_prop.split(".")
         if len(split) != 2:
@@ -234,7 +244,8 @@ class wsServer(BasePlugin):
         if o:
             if prop in o.properties:
                 username = self.connected_clients[sid]['username']
-                timezone = getProperty(f"{username}.timezone")
+
+                timezone = self._getTimezone(username)
                 p = o.properties[prop]
                 message = {
                     "property": obj_prop,
@@ -268,7 +279,7 @@ class wsServer(BasePlugin):
                     o = getObject(obj)
                     p = o.properties[prop]
                     username = client["username"]
-                    timezone = getProperty(f"{username}.timezone")
+                    timezone = self._getTimezone(username)
                     message = {
                         "property": name,
                         "value": str(value) if isinstance(value, datetime.datetime) else value,
@@ -306,7 +317,7 @@ class wsServer(BasePlugin):
                 if "executedMethod" not in client["subsActions"]:
                     continue
                 username = client["username"]
-                timezone = getProperty(f"{username}.timezone")
+                timezone = self._getTimezone(username)
                 message["executed"] = str(convert_utc_to_local(m.executed, timezone))
                 self.socketio.emit("executedMethod", message, room=sid)
         except Exception as ex:
@@ -342,7 +353,7 @@ class wsServer(BasePlugin):
             file_path = cache.get("ws:cache:" + filename)
             if not file_path:
                 abort(404, description="File not found in cache")
-            from settings import Config
+            from app.configuration import Config
             full_path = os.path.join(Config.APP_DIR,file_path)
             return send_file(full_path)
 
@@ -367,7 +378,7 @@ class wsServer(BasePlugin):
             for sid, client in list(self.connected_clients.items()):
                 payload = data
                 username = client["username"]
-                timezone = getProperty(f"{username}.timezone")
+                timezone = self._getTimezone(username)
                 payload = dict_format(payload, timezone)
                 if typeData in client["subsData"] or "*" in client["subsData"]:
                     self.socketio.emit(typeData, payload, room=sid)
