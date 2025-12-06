@@ -22,7 +22,7 @@ class wsServer(BasePlugin):
         self.title = "Websocket"
         self.description = """Websocket server (SocketIO)"""
         self.category = "System"
-        self.version = "1.0"
+        self.version = "1.1"
         self.actions = ["say", "proxy", "playsound", "widget"]
         # Dictionary connected clients
         self.connected_clients = {}
@@ -139,6 +139,34 @@ class wsServer(BasePlugin):
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
+        @self.socketio.on("unsubscribeProperties")
+        def handleUnsubscribeProperties(unsubsList):
+            self.incrementRecv(request.sid,"unsubscribeProperties",unsubsList)
+            try:
+                self.logger.debug("Received unsubscribe properties: %s", str(unsubsList))
+                if request.sid in self.connected_clients:
+                    client = self.connected_clients[request.sid]
+                    sub = client["subsProperties"]
+                    for obj_prop in unsubsList:
+                        if obj_prop in sub:
+                            sub.remove(obj_prop)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
+        @self.socketio.on("unsubscribeObjects")
+        def handleUnsubscribeObjects(unsubsList):
+            self.incrementRecv(request.sid,"unsubscribeObjects",unsubsList)
+            try:
+                self.logger.debug("Received unsubscribe objects: %s", str(unsubsList))
+                if request.sid in self.connected_clients:
+                    client = self.connected_clients[request.sid]
+                    sub = client["subsObjects"]
+                    for prop in unsubsList:
+                        if prop in sub:
+                            sub.remove(prop)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
         @self.socketio.on("subscribeActions")
         def handleSubscribeActions(subsList):
             self.incrementRecv(request.sid,"subscribeActions",subsList)
@@ -153,6 +181,20 @@ class wsServer(BasePlugin):
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
+        @self.socketio.on("unsubscribeActions")
+        def handleUnsubscribeActions(unsubsList):
+            self.incrementRecv(request.sid,"unsubscribeActions",unsubsList)
+            try:
+                self.logger.debug("Received unsubscribe actions: %s", str(unsubsList))
+                if request.sid in self.connected_clients:
+                    client = self.connected_clients[request.sid]
+                    sub = client["subsActions"]
+                    for prop in unsubsList:
+                        if prop in sub:
+                            sub.remove(prop)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
         @self.socketio.on("subscribeData")
         def handleSubscribeData(subsList):
             self.incrementRecv(request.sid,"subscribeData",subsList)
@@ -164,6 +206,20 @@ class wsServer(BasePlugin):
                     for prop in subsList:
                         if prop not in sub:
                             sub.append(prop)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
+        @self.socketio.on("unsubscribeData")
+        def handleUnsubscribeData(unsubsList):
+            self.incrementRecv(request.sid,"unsubscribeData",unsubsList)
+            try:
+                self.logger.debug("Received unsubscribe data: %s", str(unsubsList))
+                if request.sid in self.connected_clients:
+                    client = self.connected_clients[request.sid]
+                    sub = client["subsData"]
+                    for prop in unsubsList:
+                        if prop in sub:
+                            sub.remove(prop)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 

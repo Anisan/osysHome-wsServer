@@ -1,6 +1,5 @@
 {
   "Clients": "Clients",
-  "Connected": "Connected",
   "Transport": "Transport",
   "Websocket": "Websocket"
 }
