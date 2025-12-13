@@ -12,6 +12,7 @@ from app.core.utils import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
 from app.core.lib.object import getObject, callMethod, setProperty, getProperty
 from app.extensions import cache
+from app.core.lsp_client import run_lsp_action
 
 
 class wsServer(BasePlugin):
@@ -249,6 +250,24 @@ class wsServer(BasePlugin):
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
+        @self.socketio.on("lsp")
+        def handleLsp(payload=None):
+            self.incrementRecv(request.sid, "lsp", payload)
+            request_id = None
+            try:
+                payload = payload or {}
+                request_id = payload.get("requestId")
+                result = self._handle_lsp_request(payload)
+                result["requestId"] = request_id
+                self.socketio.emit("lsp", result, room=request.sid)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+                self.socketio.emit(
+                    "lsp",
+                    {"success": False, "error": str(ex), "requestId": request_id},
+                    room=request.sid,
+                )
+
         # Модификация метода emit для подсчета отправленных байт
         original_emit = self.socketio.emit
 
@@ -442,6 +461,18 @@ class wsServer(BasePlugin):
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
             return False
+
+    def _handle_lsp_request(self, payload):
+        """Обработка LSP запроса через вебсокет"""
+        action = (payload or {}).get("action")
+        code = (payload or {}).get("code", "")
+        line = payload.get("line")
+        column = payload.get("column")
+        timeout = payload.get("timeout", 1.5)
+        object_name = payload.get("object_name")
+        result = run_lsp_action(action, code, line=line, column=column, timeout=timeout, object_name=object_name)
+        result["success"] = True
+        return result
 
     def sendCommand(self, command, data, client_id=None) -> bool:
         """Send command to websocket
