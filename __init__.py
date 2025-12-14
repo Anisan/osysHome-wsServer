@@ -470,7 +470,8 @@ class wsServer(BasePlugin):
         column = payload.get("column")
         timeout = payload.get("timeout", 1.5)
         object_name = payload.get("object_name")
-        result = run_lsp_action(action, code, line=line, column=column, timeout=timeout, object_name=object_name)
+        module_name = payload.get("module_name")
+        result = run_lsp_action(action, code, line=line, column=column, timeout=timeout, object_name=object_name, module_name=module_name)
         result["success"] = True
         return result
 
