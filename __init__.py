@@ -226,14 +226,70 @@ class wsServer(BasePlugin):
 
         @self.socketio.on("setProperty")
         def handleSetProperty(name, value, source="WS"):
-            self.incrementRecv(request.sid,"setProperty",value)
+            """
+            Установка значения свойства через WebSocket.
+
+            Важно: здесь мы вызываем ObjectManager.setProperty напрямую,
+            чтобы не потерять текст ошибок валидации (ValueError, PermissionError и т.п.).
+            Обертка app.core.lib.object.setProperty перехватывает все исключения и
+            возвращает только bool, поэтому для UX в админке используем прямой вызов.
+            """
+            self.incrementRecv(request.sid, "setProperty", value)
             try:
                 if not source:
                     source = "WS"
-                self.logger.debug("Received setProperty: %s=%s (source: %s)", name, value, source)
-                setProperty(name, value, source)
+
+                self.logger.debug(
+                    "Received setProperty: %s=%s (source: %s)", name, value, source
+                )
+
+                # Разбираем имя вида "Object.Property"
+                if not isinstance(name, str) or "." not in name:
+                    raise ValueError(f"Invalid property name format: '{name}'")
+
+                object_name, prop_name = name.split(".", 1)
+                obj = getObject(object_name)
+                if not obj:
+                    raise ValueError(f"Object '{object_name}' not found")
+
+                # Вызов ObjectManager.setProperty, который теперь пробрасывает ValueError
+                obj.setProperty(prop_name, value, source)
+
+                # Успешное обновление
+                self.socketio.emit(
+                    "propertyChanged",
+                    {
+                        "success": True,
+                        "property": name,
+                        "value": value,
+                    },
+                    room=request.sid,
+                )
+
+            except (ValueError, PermissionError, TypeError) as ex:
+                # Ошибки валидации - отправляем клиенту текст исключения
+                self.logger.warning("Validation error for %s: %s", name, str(ex))
+                self.socketio.emit(
+                    "propertyChanged",
+                    {
+                        "success": False,
+                        "property": name,
+                        "error": str(ex),
+                    },
+                    room=request.sid,
+                )
             except Exception as ex:
+                # Прочие ошибки - логируем и отправляем общее сообщение
                 self.logger.exception(ex, exc_info=True)
+                self.socketio.emit(
+                    "propertyChanged",
+                    {
+                        "success": False,
+                        "property": name,
+                        "error": f"Server error: {str(ex)}",
+                    },
+                    room=request.sid,
+                )
 
         @self.socketio.on("callMethod")
         def handleCallMethod(name, source="WS", sendResult=False):
@@ -322,9 +378,10 @@ class wsServer(BasePlugin):
 
                 timezone = self._getTimezone(username)
                 p = o.properties[prop]
+                value = p.getValue()
                 message = {
                     "property": obj_prop,
-                    "value": str(p.value) if isinstance(p.value, datetime.datetime) else p.value,
+                    "value": str(value) if isinstance(value, datetime.datetime) else value,
                     "source": p.source,
                     "changed": str(convert_utc_to_local(p.changed, timezone)),
                 }
