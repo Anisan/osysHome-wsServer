@@ -465,6 +465,16 @@ class wsServer(BasePlugin):
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
 
+    def notify(self, data:dict):
+        try:
+            for sid, client in list(self.connected_clients.items()):
+                if "notify" not in client["subsActions"]:
+                    continue
+                self.socketio.emit("notify", data, room=sid)
+        except Exception as ex:
+            self.logger.exception(ex, exc_info=True)
+
+
     def playSound(self, file_name:str, level:int=0, args=None):
         try:
             for sid, client in list(self.connected_clients.items()):
