@@ -1,5 +1,7 @@
 {
   "Clients": "Клиенты",
+  "Event Filter": "Фильтр событий",
+  "Resume": "Возобновить",
   "Transport": "Транспорт",
   "Websocket": "Вебсокет"
 }

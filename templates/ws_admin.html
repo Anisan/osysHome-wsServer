@@ -6,25 +6,53 @@
 
 {% block module %}
 
-<button class="btn btn-primary" onclick="getClients()"><span class="fas fa-rotate me-2"></span>{{ _('Refresh')}}</button>
-<table id="data-table" class="table table-hover">
-    <thead>
-        <tr>
-            <th>{{ _('Username')}}</th>
-            <th>IP</th>
-            <th>SID</th>
-            <th>{{ _('Connected')}}</th>
-            <th>{{ _('Transport')}}</th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- Data clients -->
-    </tbody>
-</table>
-<div id="messages"></div>
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" id="clients-tab" data-bs-toggle="tab" href="#clients" role="tab" aria-controls="clients" aria-selected="true">{{ _('Clients')}}</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="monitoring-tab" data-bs-toggle="tab" href="#monitoring" role="tab" aria-controls="monitoring" aria-selected="false">{{ _('Monitoring')}}</a>
+    </li>
+</ul>
+
+<div class="tab-content" id="myTabContent">
+    <!-- Вкладка Клиенты -->
+    <div class="tab-pane fade show active" id="clients" role="tabpanel" aria-labelledby="clients-tab">
+        <button class="btn btn-primary mb-3" onclick="getClients()"><span class="fas fa-rotate me-2"></span>{{ _('Refresh')}}</button>
+        <table id="data-table" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>{{ _('Username')}}</th>
+                    <th>IP</th>
+                    <th>SID</th>
+                    <th>{{ _('Connected')}}</th>
+                    <th>{{ _('Transport')}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Data clients -->
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Вкладка Мониторинг -->
+    <div class="tab-pane fade" id="monitoring" role="tabpanel" aria-labelledby="monitoring-tab">
+        <div class="mt-3 mb-3">
+            <button id="pause-btn" class="btn btn-warning" onclick="togglePause()" data-pause-text="{{ _('Pause')}}" data-resume-text="{{ _('Resume')}}">
+                <span class="fas fa-pause me-2"></span>{{ _('Pause')}}
+            </button>
+            <span class="ms-3"><strong>{{ _('Event Filter')}}:</strong></span>
+            <span id="event-filters-container" class="ms-2"></span>
+        </div>
+        <div id="messages"></div>
+    </div>
+</div>
 <script>
     var sid = ''
     const maxMessages = 100;
+    var isPaused = false;
+    var eventFilter = {};
+    
     function sendMessage() {
         var input = document.getElementById('message-input');
         var message = input.value;
@@ -34,24 +62,151 @@
     function getClients(){
         socket.emit('clients');    
     }
+    
+    function togglePause() {
+        isPaused = !isPaused;
+        var btn = document.getElementById('pause-btn');
+        var pauseText = btn.getAttribute('data-pause-text');
+        var resumeText = btn.getAttribute('data-resume-text');
+        if (isPaused) {
+            btn.innerHTML = '<span class="fas fa-play me-2"></span>' + resumeText;
+            btn.className = 'btn btn-success';
+        } else {
+            btn.innerHTML = '<span class="fas fa-pause me-2"></span>' + pauseText;
+            btn.className = 'btn btn-warning';
+        }
+    }
+    
+    function getEventBadgeColor(eventName) {
+        if (eventName == "say") return 'bg-danger';
+        else if (eventName == "changeProperty") return 'bg-success';
+        else if (eventName == "changeObject") return 'bg-info';
+        else if (eventName == "executedMethod") return 'bg-warning';
+        else return 'bg-primary';
+    }
+    
+    function toggleEventFilter(eventName) {
+        if (!eventFilter.hasOwnProperty(eventName)) {
+            return;
+        }
+        
+        eventFilter[eventName] = !eventFilter[eventName];
+        updateEventBadgeStyle(eventName);
+        applyFiltersToExistingMessages();
+    }
+    
+    function updateEventBadgeStyle(eventName) {
+        var badge = document.getElementById('filter-badge-' + eventName);
+        if (!badge) return;
+        
+        if (eventFilter[eventName]) {
+            // Активный badge - цветной
+            var colorClass = getEventBadgeColor(eventName);
+            badge.className = 'badge ' + colorClass + ' me-2 event-filter-badge';
+            badge.style.cursor = 'pointer';
+        } else {
+            // Неактивный badge - серый
+            badge.className = 'badge bg-secondary me-2 event-filter-badge';
+            badge.style.cursor = 'pointer';
+        }
+    }
+    
+    function addEventToFilter(eventName) {
+        if (eventFilter.hasOwnProperty(eventName)) {
+            return; // Событие уже добавлено
+        }
+        
+        // Добавляем событие в фильтр (по умолчанию отключено)
+        eventFilter[eventName] = false;
+        
+        // Создаем badge
+        var badge = document.createElement('span');
+        badge.className = 'badge bg-secondary me-2 event-filter-badge';
+        badge.id = 'filter-badge-' + eventName;
+        badge.textContent = eventName;
+        badge.style.cursor = 'pointer';
+        badge.onclick = function() { toggleEventFilter(eventName); };
+        
+        // Добавляем badge в DOM
+        var filtersContainer = document.getElementById('event-filters-container');
+        filtersContainer.appendChild(badge);
+    }
+    
+    function hasAnyActiveFilter() {
+        for (var eventName in eventFilter) {
+            if (eventFilter[eventName]) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    function shouldShowEvent(event) {
+        // Если событие не в фильтре, показываем его
+        if (!eventFilter.hasOwnProperty(event)) {
+            return true;
+        }
+        
+        // Если нет активных фильтров, показываем все события
+        if (!hasAnyActiveFilter()) {
+            return true;
+        }
+        
+        // Иначе показываем только если событие включено в фильтре
+        return eventFilter[event];
+    }
+    
+    function applyFiltersToExistingMessages() {
+        const messagesDiv = document.getElementById('messages');
+        const messages = messagesDiv.getElementsByClassName('message');
+        
+        for (var i = 0; i < messages.length; i++) {
+            var messageElement = messages[i];
+            var eventName = messageElement.getAttribute('data-event');
+            
+            if (eventName && shouldShowEvent(eventName)) {
+                messageElement.style.display = '';
+            } else if (eventName) {
+                messageElement.style.display = 'none';
+            } else {
+                // Если у сообщения нет data-event, показываем его (старые сообщения)
+                messageElement.style.display = '';
+            }
+        }
+    }
+    
     // Функция для добавления сообщения на страницу
     function addMessage(event, data) {
+        // Проверяем паузу
+        if (isPaused) {
+            return;
+        }
+        
+        // Добавляем событие в фильтр, если его еще нет
+        addEventToFilter(event);
+        
         const messagesDiv = document.getElementById('messages');
         // Создаем новый элемент для сообщения
         const messageElement = document.createElement('div');
-        messageElement.className = 'message'; // Присваиваем класс для стилей
+        messageElement.className = 'message mb-2'; // Присваиваем класс для стилей
+        messageElement.setAttribute('data-event', event); // Сохраняем тип события для фильтрации
+        
+        // Применяем фильтр при добавлении
+        if (!shouldShowEvent(event)) {
+            messageElement.style.display = 'none';
+        }
         // Создаем элемент для времени
         const timestampElement = document.createElement('span');
-        timestampElement.className = 'badge bg-secondary'; // Присваиваем класс для стилей
+        timestampElement.className = 'badge bg-secondary me-2'; // Присваиваем класс для стилей
         const now = new Date();
         timestampElement.textContent = now.toLocaleTimeString(); // Форматирование времени
         // Создаем элементы для имени события и данных
         const eventElement = document.createElement('span');
-        if (event == "say") eventElement.className = 'badge bg-danger';
-        else if (event == "changeProperty") eventElement.className = 'badge bg-success';
-        else if (event == "changeObject") eventElement.className = 'badge bg-info';
-        else if (event == "executedMethod") eventElement.className = 'badge bg-warning';
-        else eventElement.className = 'badge bg-primary';
+        if (event == "say") eventElement.className = 'badge bg-danger me-2';
+        else if (event == "changeProperty") eventElement.className = 'badge bg-success me-2';
+        else if (event == "changeObject") eventElement.className = 'badge bg-info me-2';
+        else if (event == "executedMethod") eventElement.className = 'badge bg-warning me-2';
+        else eventElement.className = 'badge bg-primary me-2';
         eventElement.textContent = event;
         const dataElement = document.createElement('span');
         dataElement.style = "font-size:12px";

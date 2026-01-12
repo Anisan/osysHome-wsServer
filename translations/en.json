@@ -1,5 +1,7 @@
 {
   "Clients": "Clients",
+  "Event Filter": "Event Filter",
+  "Resume": "Resume",
   "Transport": "Transport",
   "Websocket": "Websocket"
 }
