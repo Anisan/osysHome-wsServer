@@ -596,20 +596,33 @@ class wsServer(BasePlugin):
             bool: Success
         """
         try:
-            def dict_format(data, timezone):
-                if isinstance(data, dict):
-                    for key in data.keys():
-                        if isinstance(data[key], dict):
-                            data[key] = dict_format(data[key], timezone)
-                        elif isinstance(data[key], datetime.datetime):
-                            data[key] = str(convert_utc_to_local(data[key],timezone))
-                return data
+            def dict_format(value, timezone):
+                """
+                Recursively walk through payload and:
+                - convert datetime to localized string
+                - convert date to ISO string
+                - handle dicts, lists, tuples, sets
+                Returns a new structure without mutating the original.
+                """
+                if isinstance(value, dict):
+                    return {
+                        k: dict_format(v, timezone)
+                        for k, v in value.items()
+                    }
+                if isinstance(value, (list, tuple, set)):
+                    container_type = type(value)
+                    return container_type(dict_format(v, timezone) for v in value)
+                if isinstance(value, datetime.datetime):
+                    return str(convert_utc_to_local(value, timezone))
+                if isinstance(value, datetime.date):
+                    return value.isoformat()
+                return value
 
             for sid, client in list(self.connected_clients.items()):
-                payload = data
                 username = client["username"]
                 timezone = self._getTimezone(username)
-                payload = dict_format(payload, timezone)
+                # Build a JSON‑serializable payload per client without mutating the original data
+                payload = dict_format(data, timezone)
                 if typeData in client["subsData"] or "*" in client["subsData"]:
                     self.socketio.emit(typeData, payload, room=sid)
             return True
