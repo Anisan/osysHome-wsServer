@@ -439,12 +439,45 @@ class wsServer(BasePlugin):
             self.logger.exception(ex, exc_info=True)
 
     def changeProperty(self, obj, prop, value):
+        """
+        Send changeProperty and changeObject notifications to subscribed clients.
+        
+        Handles errors separately for each notification type to ensure partial failures
+        don't block other notifications.
+        """
+        name = obj + "." + prop
+        cache_render = None
+        render_error = False
+        
+        # Try to render object template once (before client loop for efficiency)
+        # But handle errors gracefully so changeProperty can still be sent
         try:
-            cache_render = None     # cache.get(f"render_{obj}")
-            name = obj + "." + prop
-            for sid, client in list(self.connected_clients.items()):
-                if name in client["subsProperties"] or "*" in client["subsProperties"]:
+            o = getObject(obj)
+            if o is not None:
+                try:
+                    with self._app.app_context():
+                        cache_render = o.render()
+                except Exception as render_ex:
+                    self.logger.error(f"Error rendering object '{obj}' template: {render_ex}", exc_info=True)
+                    render_error = True
+                    cache_render = None
+        except Exception as ex:
+            self.logger.warning(f"Error getting object '{obj}' for rendering: {ex}")
+            render_error = True
+        
+        for sid, client in list(self.connected_clients.items()):
+            # Send changeProperty notification (independent error handling)
+            if name in client["subsProperties"] or "*" in client["subsProperties"]:
+                try:
                     o = getObject(obj)
+                    if o is None:
+                        self.logger.warning(f"Object '{obj}' not found when sending changeProperty for {name}")
+                        continue
+                    
+                    if prop not in o.properties:
+                        self.logger.warning(f"Property '{prop}' not found in object '{obj}' when sending changeProperty")
+                        continue
+                    
                     p = o.properties[prop]
                     username = client["username"]
                     timezone = self._getTimezone(username)
@@ -456,16 +489,35 @@ class wsServer(BasePlugin):
                     }
                     self.socketio.emit("changeProperty", message, room=sid)
                     self.logger.debug(message)
-                if obj in client["subsObjects"] or "*" in client["subsObjects"]:
-                    if not cache_render:
+                except Exception as ex:
+                    self.logger.exception(f"Error sending changeProperty for {name} to client {sid}: {ex}", exc_info=True)
+            
+            # Send changeObject notification (independent error handling)
+            if obj in client["subsObjects"] or "*" in client["subsObjects"]:
+                try:
+                    # Only send if we successfully rendered the template
+                    if render_error:
+                        self.logger.debug(f"Skipping changeObject for '{obj}' to client {sid} due to render error")
+                        continue
+                    
+                    if cache_render is None:
+                        # Fallback: try to render again for this specific client
                         o = getObject(obj)
-                        with self._app.app_context():
-                            cache_render = o.render()
-                        # cache.set(f"render_{obj}",cache_render,timeout=5)
+                        if o is None:
+                            self.logger.warning(f"Object '{obj}' not found when sending changeObject to client {sid}")
+                            continue
+                        
+                        try:
+                            with self._app.app_context():
+                                cache_render = o.render()
+                        except Exception as render_ex:
+                            self.logger.error(f"Error rendering object '{obj}' template for client {sid}: {render_ex}", exc_info=True)
+                            continue
+                    
                     message = {"object": obj, "value": cache_render}
                     self.socketio.emit("changeObject", message, room=sid)
-        except Exception as ex:
-            self.logger.exception(ex, exc_info=True)
+                except Exception as ex:
+                    self.logger.exception(f"Error sending changeObject for '{obj}' to client {sid}: {ex}", exc_info=True)
 
     def executedMethod(self, obj, method):
         try:
