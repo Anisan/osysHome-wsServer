@@ -44,6 +44,7 @@ from app.authentication.handlers import handle_user_required
 from flask import render_template, request, send_file, abort
 from flask_login import current_user
 from app.database import convert_utc_to_local, get_now_to_utc
+from app.logging_config import security_audit_log
 from app.core.utils import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
 from app.core.lib.object import getObject, callMethod, setProperty, getProperty
@@ -84,6 +85,8 @@ class wsServer(BasePlugin):
         def handleConnect():
             try:
                 if not current_user.is_authenticated:
+                    ip = request.remote_addr or '?'
+                    security_audit_log('WS_UNAUTHORIZED', ip=ip, endpoint='ws_connect', reason='not_authenticated')
                     raise ConnectionRefusedError('Unauthorized')
                 self.logger.debug(
                     "Client %s(%s) connected", request.remote_addr, request.sid
