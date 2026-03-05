@@ -97,7 +97,8 @@ class wsServer(BasePlugin):
                     "ip": request.remote_addr,
                     "connected": get_now_to_utc().strftime("%Y-%m-%d %H:%M:%S"),
                     "transport": self.socketio.server.transport(request.sid),
-                    "stats":{"recvBytes":0, "sentBytes":0},
+                    "page": request.path,
+                    "stats": {"recvBytes": 0, "sentBytes": 0},
                     "subsProperties": [],
                     "subsObjects": [],
                     "subsData": [],
@@ -135,6 +136,18 @@ class wsServer(BasePlugin):
         def handleClients():
             self.incrementRecv(request.sid,"clients")
             self.sendClientsInfo(request.sid)
+
+        @self.socketio.on("page")
+        def handlePage(page):
+            """Update current page/URL for connected client."""
+            self.incrementRecv(request.sid, "page", page)
+            try:
+                if request.sid in self.connected_clients:
+                    self.connected_clients[request.sid]["page"] = page
+                    # Обновляем информацию о клиентах для всех слушателей
+                    self.sendClientsInfo()
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
 
         # TODO subscribe property
         @self.socketio.on("subscribeProperties")

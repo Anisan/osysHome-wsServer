@@ -1,7 +1,10 @@
 {
   "Clients": "Клиенты",
   "Event Filter": "Фильтр событий",
-  "Resume": "Возобновить",
+  "Page": "Страница",
+  "Resume": "Продолжить",
+  "Subscriptions": "Подписки",
+  "Traffic": "Трафик",
   "Transport": "Транспорт",
-  "Websocket": "Вебсокет"
+  "Websocket": "Websocket"
 }

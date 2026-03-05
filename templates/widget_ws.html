@@ -37,10 +37,16 @@
     function getDataIcons(data) {
         if (!data || data.length === 0) return '';
         
+        // Подписка на все модули - один бейдж со *
+        if (data.includes('*')) {
+            return `<span class="badge bg-info ms-1" title="All modules">
+                <i class="fas fa-layer-group"></i> *
+            </span>`;
+        }
+        
         let result = '';
         data.forEach(item => {
             result += `<img src="/${item}/static/${item}.png" height="24px" title="${item}" onerror="this.src='/static/assets/images/module.png'">`;
-
         });
         
         return result ? `<span class="action-icons">${result}</span>` : '';

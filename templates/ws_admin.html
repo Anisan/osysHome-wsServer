@@ -27,6 +27,9 @@
                     <th>SID</th>
                     <th>{{ _('Connected')}}</th>
                     <th>{{ _('Transport')}}</th>
+                    <th>{{ _('Page')}}</th>
+                    <th>{{ _('Traffic')}}</th>
+                    <th>{{ _('Subscriptions')}}</th>
                 </tr>
             </thead>
             <tbody>
@@ -45,8 +48,21 @@
             <span id="event-filters-container" class="ms-2"></span>
         </div>
         <div id="messages"></div>
-    </div>
 </div>
+</div>
+<style>
+    .ws-action-icons {
+        display: inline-flex;
+        gap: 3px;
+        margin: 0 5px;
+    }
+    .ws-action-icons i {
+        font-size: 0.9rem;
+    }
+    .ws-subs-badge i {
+        margin-right: 2px;
+    }
+</style>
 <script>
     var sid = ''
     const maxMessages = 100;
@@ -61,6 +77,62 @@
     }
     function getClients(){
         socket.emit('clients');    
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes || bytes < 0) return '-';
+        if (bytes < 1024) return bytes + 'B';
+        return (bytes / 1024).toFixed(0) + 'K';
+    }
+
+    function getActionIcons(actions) {
+        if (!actions || actions.length === 0) return '';
+        
+        const icons = {
+            'executedMethod': 'fas fa-code',
+            'say': 'fas fa-comment-alt',
+            'playsound': 'fas fa-volume-up',
+            'notify': 'fas fa-bell',
+        };
+        
+        let result = '';
+        actions.forEach(action => {
+            if (icons[action]) {
+                result += `<i class="${icons[action]} text-primary mx-1" title="${action}"></i>`;
+            }
+        });
+        
+        return result ? `<span class="ws-action-icons">${result}</span>` : '';
+    }
+
+    function getDataIcons(data) {
+        if (!data || data.length === 0) return '';
+        
+        // Подписка на все модули - один бейдж со *
+        if (data.includes('*')) {
+            return `<span class="badge bg-info ms-1 ws-subs-badge" title="All modules">
+                <i class="fas fa-layer-group"></i> *
+            </span>`;
+        }
+        
+        let result = '';
+        data.forEach(item => {
+            result += `<img src="/${item}/static/${item}.png" height="20px" title="${item}" onerror="this.src='/static/assets/images/module.png'">`;
+        });
+        
+        return result ? `<span class="ws-action-icons">${result}</span>` : '';
+    }
+    
+    function getCountBadge(count, icon, title) {
+        if (count === 0) return '';
+        if (count === '*' || count > 999) {
+            return `<span class="badge bg-danger ms-1 ws-subs-badge" title="${title}">
+                <i class="${icon}"></i> *
+            </span>`;
+        }
+        return `<span class="badge bg-secondary ms-1 ws-subs-badge" title="${title}">
+            <i class="${icon}"></i> ${count}
+        </span>`;
     }
     
     function togglePause() {
@@ -245,12 +317,32 @@
                 var current = ""
                 if (key == sid)
                     current = '<span class="badge badge-sm bg-success ms-3">current</span>'
+
+                // Подписки
+                var propsCount = item.subsProperties && item.subsProperties.includes('*') ? '*' : (item.subsProperties ? item.subsProperties.length : 0);
+                var objectsCount = item.subsObjects && item.subsObjects.includes('*') ? '*' : (item.subsObjects ? item.subsObjects.length : 0);
+
+                var actionIcons = getActionIcons(item.subsActions);
+                var propsBadge = getCountBadge(propsCount, 'fas fa-file-alt', "Properties");
+                var objectsBadge = getCountBadge(objectsCount, 'fas fa-cube', "Objects");
+                var dataIcons = getDataIcons(item.subsData);
+
                 row.innerHTML = `
                     <td>${item.username}</td>
                     <td>${item.ip}</td>
                     <td>${key}${current}</td>
                     <td>${item.connected}</td>
                     <td>${item.transport}</td>
+                    <td>${item.page || ''}</td>
+                    <td>
+                        <small class="text-muted">${item.stats ? `↑${formatBytes(item.stats.sentBytes)} ↓${formatBytes(item.stats.recvBytes)}` : ''}</small>
+                    </td>
+                    <td>
+                        ${propsBadge}
+                        ${objectsBadge}
+                        ${actionIcons}
+                        ${dataIcons}
+                    </td>
                 `;
                 tableBody.appendChild(row);
             });
