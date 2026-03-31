@@ -612,6 +612,14 @@ class wsServer(BasePlugin):
             bool: Success
         """
         try:
+            # Skip if no clients are subscribed to this typeData (e.g. z2m page closed)
+            has_subscribers = any(
+                typeData in client.get("subsData", []) or "*" in client.get("subsData", [])
+                for client in self.connected_clients.values()
+            )
+            if not has_subscribers:
+                return True
+
             def dict_format(value, timezone):
                 """
                 Recursively walk through payload and:
