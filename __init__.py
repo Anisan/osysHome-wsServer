@@ -48,7 +48,7 @@ from app.database import convert_utc_to_local, get_now_to_utc
 from app.logging_config import security_audit_log
 from app.core.utils import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
-from app.core.lib.object import getObject, callMethod, setProperty, getProperty
+from app.core.lib.object import getObject, callMethod, getProperty
 from app.extensions import cache
 from app.core.lsp_client import run_lsp_action
 
@@ -122,7 +122,7 @@ class wsServer(BasePlugin):
             "property_change_debounce_ms": int(self.config.get("property_change_debounce_ms", 80)),
         }
         return render_template("ws_admin.html", **content)
-    
+
     def widget(self):
         return render_template("widget_ws.html")
 
@@ -506,7 +506,7 @@ class wsServer(BasePlugin):
     def changeProperty(self, obj, prop, value):
         """
         Send changeProperty and changeObject notifications to subscribed clients.
-        
+
         Handles errors separately for each notification type to ensure partial failures
         don't block other notifications.
         """
@@ -527,7 +527,8 @@ class wsServer(BasePlugin):
             if prop_debounce_enabled and prop_debounce_ms > 0:
                 self._schedule_change_property_emit(obj, prop, prop_debounce_ms)
             else:
-                self._emit_change_property_now(obj, prop, value)
+                # Keep core update path responsive: emit in background when debounce is off.
+                self.socketio.start_background_task(self._emit_change_property_now, obj, prop, value)
 
         # Send changeObject only when there are object subscribers and render changed.
         if object_subscribers:
@@ -536,7 +537,8 @@ class wsServer(BasePlugin):
             if debounce_enabled and debounce_ms > 0:
                 self._schedule_change_object_emit(obj, debounce_ms)
             else:
-                self._emit_change_object_now(obj)
+                # Keep core update path responsive: render/emit in background when debounce is off.
+                self.socketio.start_background_task(self._emit_change_object_now, obj)
 
     def _get_object_subscribers(self, obj):
         subscribers = []
@@ -702,7 +704,6 @@ class wsServer(BasePlugin):
                 self.socketio.emit("notify", data, room=sid)
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
-
 
     def playSound(self, file_name:str, level:int=0, args=None):
         try:
