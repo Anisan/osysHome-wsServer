@@ -38,6 +38,7 @@ WebSocket сервер на базе SocketIO для обеспечения дв
 import os
 import json
 import datetime
+import threading
 from flask_socketio import SocketIO, ConnectionRefusedError
 from app.authentication.handlers import handle_user_required
 
@@ -64,15 +65,63 @@ class wsServer(BasePlugin):
         self.actions = ["say", "proxy", "playsound", "widget"]
         # Dictionary connected clients
         self.connected_clients = {}
+        # Last sent rendered HTML per object for changeObject de-duplication
+        self._last_object_render = {}
+        # Last sent property state per Object.property for changeProperty de-duplication
+        self._last_property_state = {}
+        # Pending per-object timers for changeObject debounce
+        self._pending_object_timers = {}
+        self._pending_object_timers_lock = threading.Lock()
+        # Pending per-property timers for changeProperty debounce
+        self._pending_property_timers = {}
+        self._pending_property_timers_lock = threading.Lock()
         # ws
         self.socketio = SocketIO(app, logger=False, engineio_logger=False, cors_allowed_origins="*")
         self.register_websocket(app)
 
     def initialization(self) -> None:
-        pass
+        if "object_render_debounce_enabled" not in self.config:
+            self.config["object_render_debounce_enabled"] = True
+        if "object_render_debounce_ms" not in self.config:
+            self.config["object_render_debounce_ms"] = 120
+        if "property_change_debounce_enabled" not in self.config:
+            self.config["property_change_debounce_enabled"] = False
+        if "property_change_debounce_ms" not in self.config:
+            self.config["property_change_debounce_ms"] = 80
+        self.saveConfig()
 
     def admin(self, request) -> str:
-        return render_template("ws_admin.html")
+        if request.method == "POST":
+            try:
+                enabled = request.form.get("object_render_debounce_enabled") == "on"
+                try:
+                    debounce_ms = int(request.form.get("object_render_debounce_ms", 120))
+                except (TypeError, ValueError):
+                    debounce_ms = 120
+                debounce_ms = max(0, min(5000, debounce_ms))
+
+                prop_enabled = request.form.get("property_change_debounce_enabled") == "on"
+                try:
+                    prop_debounce_ms = int(request.form.get("property_change_debounce_ms", 80))
+                except (TypeError, ValueError):
+                    prop_debounce_ms = 80
+                prop_debounce_ms = max(0, min(5000, prop_debounce_ms))
+
+                self.config["object_render_debounce_enabled"] = enabled
+                self.config["object_render_debounce_ms"] = debounce_ms
+                self.config["property_change_debounce_enabled"] = prop_enabled
+                self.config["property_change_debounce_ms"] = prop_debounce_ms
+                self.saveConfig()
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
+        content = {
+            "object_render_debounce_enabled": bool(self.config.get("object_render_debounce_enabled", True)),
+            "object_render_debounce_ms": int(self.config.get("object_render_debounce_ms", 120)),
+            "property_change_debounce_enabled": bool(self.config.get("property_change_debounce_enabled", False)),
+            "property_change_debounce_ms": int(self.config.get("property_change_debounce_ms", 80)),
+        }
+        return render_template("ws_admin.html", **content)
     
     def widget(self):
         return render_template("widget_ws.html")
@@ -464,42 +513,96 @@ class wsServer(BasePlugin):
         name = obj + "." + prop
         cache_render = None
         render_error = False
-        
-        # Try to render object template once (before client loop for efficiency)
-        # But handle errors gracefully so changeProperty can still be sent
-        try:
-            o = getObject(obj)
-            if o is not None:
-                try:
-                    with self._app.app_context():
-                        cache_render = o.render()
-                except Exception as render_ex:
-                    self.logger.error(f"Error rendering object '{obj}' template: {render_ex}", exc_info=True)
-                    render_error = True
-                    cache_render = None
-        except Exception as ex:
-            self.logger.warning(f"Error getting object '{obj}' for rendering: {ex}")
-            render_error = True
-        
+
+        # Build subscriber lists first to avoid unnecessary rendering work.
+        property_subscribers = []
+        object_subscribers = []
         for sid, client in list(self.connected_clients.items()):
-            # Send changeProperty notification (independent error handling)
             if name in client["subsProperties"] or "*" in client["subsProperties"]:
+                property_subscribers.append((sid, client))
+            if obj in client["subsObjects"] or "*" in client["subsObjects"]:
+                object_subscribers.append((sid, client))
+
+        # Render object template only when there are object subscribers.
+        if object_subscribers:
+            try:
+                o = getObject(obj)
+                if o is not None:
+                    try:
+                        with self._app.app_context():
+                            cache_render = o.render()
+                    except Exception as render_ex:
+                        self.logger.error(f"Error rendering object '{obj}' template: {render_ex}", exc_info=True)
+                        render_error = True
+                        cache_render = None
+            except Exception as ex:
+                self.logger.warning(f"Error getting object '{obj}' for rendering: {ex}")
+                render_error = True
+
+        if property_subscribers:
+            prop_debounce_enabled = bool(self.config.get("property_change_debounce_enabled", False))
+            prop_debounce_ms = int(self.config.get("property_change_debounce_ms", 80) or 0)
+            if prop_debounce_enabled and prop_debounce_ms > 0:
+                self._schedule_change_property_emit(obj, prop, prop_debounce_ms)
+            else:
+                self._emit_change_property_now(obj, prop, value)
+
+        # Send changeObject only when there are object subscribers and render changed.
+        if object_subscribers:
+            debounce_enabled = bool(self.config.get("object_render_debounce_enabled", True))
+            debounce_ms = int(self.config.get("object_render_debounce_ms", 120) or 0)
+            if debounce_enabled and debounce_ms > 0:
+                self._schedule_change_object_emit(obj, debounce_ms)
+            else:
+                self._emit_change_object_now(obj)
+
+    def _get_object_subscribers(self, obj):
+        subscribers = []
+        for sid, client in list(self.connected_clients.items()):
+            if obj in client["subsObjects"] or "*" in client["subsObjects"]:
+                subscribers.append((sid, client))
+        return subscribers
+
+    def _get_property_subscribers(self, property_name):
+        subscribers = []
+        for sid, client in list(self.connected_clients.items()):
+            if property_name in client["subsProperties"] or "*" in client["subsProperties"]:
+                subscribers.append((sid, client))
+        return subscribers
+
+    def _emit_change_property_now(self, obj, prop, value_hint=None):
+        name = obj + "." + prop
+        try:
+            subscribers = self._get_property_subscribers(name)
+            if not subscribers:
+                return
+
+            o = getObject(obj)
+            if o is None:
+                self.logger.warning(f"Object '{obj}' not found when emitting changeProperty for {name}")
+                return
+            if prop not in o.properties:
+                self.logger.warning(f"Property '{prop}' not found in object '{obj}' when emitting changeProperty")
+                return
+
+            p = o.properties[prop]
+            raw_value = p.getValue() if value_hint is None else value_hint
+            state = (
+                str(raw_value) if isinstance(raw_value, datetime.datetime) else raw_value,
+                p.source,
+                str(p.changed) if p.changed else None,
+            )
+            if self._last_property_state.get(name) == state:
+                return
+            self._last_property_state[name] = state
+
+            for sid, client in subscribers:
                 try:
-                    o = getObject(obj)
-                    if o is None:
-                        self.logger.warning(f"Object '{obj}' not found when sending changeProperty for {name}")
-                        continue
-                    
-                    if prop not in o.properties:
-                        self.logger.warning(f"Property '{prop}' not found in object '{obj}' when sending changeProperty")
-                        continue
-                    
-                    p = o.properties[prop]
                     username = client["username"]
                     timezone = self._getTimezone(username)
                     message = {
                         "property": name,
-                        "value": str(value) if isinstance(value, datetime.datetime) else value,
+                        "value": state[0],
                         "source": p.source,
                         "changed": str(convert_utc_to_local(p.changed, timezone)),
                     }
@@ -507,33 +610,73 @@ class wsServer(BasePlugin):
                     self.logger.debug(message)
                 except Exception as ex:
                     self.logger.exception(f"Error sending changeProperty for {name} to client {sid}: {ex}", exc_info=True)
-            
-            # Send changeObject notification (independent error handling)
-            if obj in client["subsObjects"] or "*" in client["subsObjects"]:
+        except Exception as ex:
+            self.logger.exception(f"Error in _emit_change_property_now for {name}: {ex}", exc_info=True)
+
+    def _schedule_change_property_emit(self, obj, prop, debounce_ms):
+        name = obj + "." + prop
+        delay_s = max(0, debounce_ms) / 1000.0
+        with self._pending_property_timers_lock:
+            old_timer = self._pending_property_timers.get(name)
+            if old_timer:
+                old_timer.cancel()
+
+            timer = threading.Timer(delay_s, lambda: self._flush_change_property_emit(obj, prop))
+            timer.daemon = True
+            self._pending_property_timers[name] = timer
+            timer.start()
+
+    def _flush_change_property_emit(self, obj, prop):
+        name = obj + "." + prop
+        with self._pending_property_timers_lock:
+            self._pending_property_timers.pop(name, None)
+        self._emit_change_property_now(obj, prop)
+
+    def _emit_change_object_now(self, obj):
+        try:
+            subscribers = self._get_object_subscribers(obj)
+            if not subscribers:
+                return
+
+            o = getObject(obj)
+            if o is None:
+                self.logger.warning(f"Object '{obj}' not found when emitting changeObject")
+                return
+
+            with self._app.app_context():
+                cache_render = o.render()
+
+            if cache_render is None:
+                return
+            if self._last_object_render.get(obj) == cache_render:
+                return
+
+            self._last_object_render[obj] = cache_render
+            message = {"object": obj, "value": cache_render}
+            for sid, _client in subscribers:
                 try:
-                    # Only send if we successfully rendered the template
-                    if render_error:
-                        self.logger.debug(f"Skipping changeObject for '{obj}' to client {sid} due to render error")
-                        continue
-                    
-                    if cache_render is None:
-                        # Fallback: try to render again for this specific client
-                        o = getObject(obj)
-                        if o is None:
-                            self.logger.warning(f"Object '{obj}' not found when sending changeObject to client {sid}")
-                            continue
-                        
-                        try:
-                            with self._app.app_context():
-                                cache_render = o.render()
-                        except Exception as render_ex:
-                            self.logger.error(f"Error rendering object '{obj}' template for client {sid}: {render_ex}", exc_info=True)
-                            continue
-                    
-                    message = {"object": obj, "value": cache_render}
                     self.socketio.emit("changeObject", message, room=sid)
                 except Exception as ex:
                     self.logger.exception(f"Error sending changeObject for '{obj}' to client {sid}: {ex}", exc_info=True)
+        except Exception as ex:
+            self.logger.exception(f"Error in _emit_change_object_now for '{obj}': {ex}", exc_info=True)
+
+    def _schedule_change_object_emit(self, obj, debounce_ms):
+        delay_s = max(0, debounce_ms) / 1000.0
+        with self._pending_object_timers_lock:
+            old_timer = self._pending_object_timers.get(obj)
+            if old_timer:
+                old_timer.cancel()
+
+            timer = threading.Timer(delay_s, lambda: self._flush_change_object_emit(obj))
+            timer.daemon = True
+            self._pending_object_timers[obj] = timer
+            timer.start()
+
+    def _flush_change_object_emit(self, obj):
+        with self._pending_object_timers_lock:
+            self._pending_object_timers.pop(obj, None)
+        self._emit_change_object_now(obj)
 
     def executedMethod(self, obj, method):
         try:

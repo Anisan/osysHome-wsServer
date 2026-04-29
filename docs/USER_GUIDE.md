@@ -42,7 +42,7 @@ The admin page is available at:
 /admin/wsServer
 ```
 
-The module includes two tabs.
+The module includes three tabs.
 
 ### 4.1. Clients
 
@@ -69,6 +69,35 @@ Allows you to watch WebSocket events in real time:
 - automatically create filters by event type;
 - review recent messages stored in the page;
 - visually distinguish events by color.
+
+### 4.3. Settings
+
+The `Settings` tab contains render optimization parameters:
+
+- `Enable object render debounce` - enables/disables server-side debounce for `changeObject`;
+- `Object render debounce (ms)` - debounce window in milliseconds;
+- `Enable property change debounce` - enables/disables server-side debounce for `changeProperty`;
+- `Property change debounce (ms)` - debounce window in milliseconds.
+
+Default values:
+
+- enabled: `true`;
+- delay: `120 ms`.
+
+For property debounce:
+
+- enabled: `false`;
+- delay: `80 ms`.
+
+Recommended range: `80-300 ms`.
+
+Property debounce recommended range: `40-150 ms`.
+
+How it affects behavior:
+
+- `changeProperty` can be coalesced per `Object.property` when property debounce is enabled;
+- `changeObject` is coalesced per object and sent as the latest state after debounce;
+- initial property value sent on `subscribeProperties` is still immediate (`sendProperty(...)`).
 
 ## 5. Module Widget
 

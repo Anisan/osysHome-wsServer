@@ -13,6 +13,9 @@
     <li class="nav-item">
         <a class="nav-link" id="monitoring-tab" data-bs-toggle="tab" href="#monitoring" role="tab" aria-controls="monitoring" aria-selected="false">{{ _('Monitoring')}}</a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link" id="settings-tab" data-bs-toggle="tab" href="#settings" role="tab" aria-controls="settings" aria-selected="false">{{ _('Settings')}}</a>
+    </li>
 </ul>
 
 <div class="tab-content" id="myTabContent">
@@ -48,7 +51,82 @@
             <span id="event-filters-container" class="ms-2"></span>
         </div>
         <div id="messages"></div>
-</div>
+    </div>
+
+    <!-- Вкладка Настройки -->
+    <div class="tab-pane fade" id="settings" role="tabpanel" aria-labelledby="settings-tab">
+        <div class="card mt-2">
+            <div class="card-header py-2">
+                <strong>{{ _('Render Optimization') }}</strong>
+            </div>
+            <div class="card-body py-2">
+                <form method="POST" class="ws-settings-form">
+                    <div class="mb-3">
+                        <div class="form-check form-switch mb-0">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="object_render_debounce_enabled"
+                                name="object_render_debounce_enabled"
+                                {% if object_render_debounce_enabled %}checked{% endif %}
+                            >
+                            <label class="form-check-label" for="object_render_debounce_enabled">
+                                {{ _('Enable object render debounce') }}
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label mb-1 small" for="object_render_debounce_ms">{{ _('Object render debounce (ms)') }}</label>
+                        <input
+                            type="number"
+                            class="form-control form-control-sm"
+                            id="object_render_debounce_ms"
+                            name="object_render_debounce_ms"
+                            min="0"
+                            max="5000"
+                            step="10"
+                            value="{{ object_render_debounce_ms }}"
+                        >
+                        <div class="form-text mt-1 mb-0 small">{{ _('Recommended range: 80-300 ms') }}</div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="mb-3">
+                        <div class="form-check form-switch mb-0">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="property_change_debounce_enabled"
+                                name="property_change_debounce_enabled"
+                                {% if property_change_debounce_enabled %}checked{% endif %}
+                            >
+                            <label class="form-check-label" for="property_change_debounce_enabled">
+                                {{ _('Enable property change debounce') }}
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label mb-1 small" for="property_change_debounce_ms">{{ _('Property change debounce (ms)') }}</label>
+                        <input
+                            type="number"
+                            class="form-control form-control-sm"
+                            id="property_change_debounce_ms"
+                            name="property_change_debounce_ms"
+                            min="0"
+                            max="5000"
+                            step="10"
+                            value="{{ property_change_debounce_ms }}"
+                        >
+                        <div class="form-text mt-1 mb-0 small">{{ _('Recommended range: 40-150 ms') }}</div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="mb-3">
+                        <button type="submit" class="btn btn-sm btn-primary w-100">{{ _('Save') }}</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 <style>
     .ws-action-icons {
@@ -61,6 +139,9 @@
     }
     .ws-subs-badge i {
         margin-right: 2px;
+    }
+    .ws-settings-form {
+        max-width: 420px;
     }
 </style>
 <script>

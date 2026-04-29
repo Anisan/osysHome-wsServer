@@ -344,8 +344,20 @@ plugin.say("Система запущена")
 Метод:
 
 - учитывает часовой пояс пользователя;
-- старается один раз отрендерить объект и переиспользовать HTML;
+- рендерит HTML объекта только при наличии подписчиков `subscribeObjects`;
+- отправляет `changeProperty` только при наличии подписчиков `subscribeProperties`;
+- делает дедупликацию `changeProperty` по состоянию `(value, source, changed)` для `Object.property`;
+- поддерживает серверный debounce по свойствам (настраивается в параметрах модуля);
+- делает дедупликацию `changeObject` по сравнению с последней отправленной версией HTML;
+- поддерживает серверный debounce по объекту (настраивается в параметрах модуля);
 - не даёт ошибке рендера объекта сломать отправку `changeProperty`.
+
+Ключи конфигурации debounce:
+
+- `object_render_debounce_enabled` (bool, по умолчанию `true`);
+- `object_render_debounce_ms` (int, по умолчанию `120`, диапазон `0..5000`).
+- `property_change_debounce_enabled` (bool, по умолчанию `false`);
+- `property_change_debounce_ms` (int, по умолчанию `80`, диапазон `0..5000`).
 
 ### 5.5. `executedMethod(obj, method)`
 

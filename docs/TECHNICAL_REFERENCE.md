@@ -344,8 +344,20 @@ Broadcasts:
 This method:
 
 - takes the user's timezone into account;
-- tries to render the object once and reuse the HTML;
+- renders object HTML only when there are `subscribeObjects` subscribers;
+- sends `changeProperty` only when there are `subscribeProperties` subscribers;
+- de-duplicates `changeProperty` by `(value, source, changed)` state per `Object.property`;
+- supports per-property server-side debounce (configurable in module settings);
+- de-duplicates `changeObject` by comparing rendered HTML with the last sent version;
+- supports per-object server-side debounce (configurable in module settings);
 - does not allow an object render failure to break `changeProperty` delivery.
+
+Debounce-related config keys:
+
+- `object_render_debounce_enabled` (bool, default `true`);
+- `object_render_debounce_ms` (int, default `120`, range `0..5000`).
+- `property_change_debounce_enabled` (bool, default `false`);
+- `property_change_debounce_ms` (int, default `80`, range `0..5000`).
 
 ### 5.5. `executedMethod(obj, method)`
 
