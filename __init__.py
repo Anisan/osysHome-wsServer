@@ -511,8 +511,6 @@ class wsServer(BasePlugin):
         don't block other notifications.
         """
         name = obj + "." + prop
-        cache_render = None
-        render_error = False
 
         # Build subscriber lists first to avoid unnecessary rendering work.
         property_subscribers = []
@@ -522,22 +520,6 @@ class wsServer(BasePlugin):
                 property_subscribers.append((sid, client))
             if obj in client["subsObjects"] or "*" in client["subsObjects"]:
                 object_subscribers.append((sid, client))
-
-        # Render object template only when there are object subscribers.
-        if object_subscribers:
-            try:
-                o = getObject(obj)
-                if o is not None:
-                    try:
-                        with self._app.app_context():
-                            cache_render = o.render()
-                    except Exception as render_ex:
-                        self.logger.error(f"Error rendering object '{obj}' template: {render_ex}", exc_info=True)
-                        render_error = True
-                        cache_render = None
-            except Exception as ex:
-                self.logger.warning(f"Error getting object '{obj}' for rendering: {ex}")
-                render_error = True
 
         if property_subscribers:
             prop_debounce_enabled = bool(self.config.get("property_change_debounce_enabled", False))
