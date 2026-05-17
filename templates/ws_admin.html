@@ -14,6 +14,9 @@
         <a class="nav-link" id="monitoring-tab" data-bs-toggle="tab" href="#monitoring" role="tab" aria-controls="monitoring" aria-selected="false">{{ _('Monitoring')}}</a>
     </li>
     <li class="nav-item">
+        <a class="nav-link" id="statistics-tab" data-bs-toggle="tab" href="#statistics" role="tab" aria-controls="statistics" aria-selected="false">{{ _('Statistics')}}</a>
+    </li>
+    <li class="nav-item">
         <a class="nav-link" id="settings-tab" data-bs-toggle="tab" href="#settings" role="tab" aria-controls="settings" aria-selected="false">{{ _('Settings')}}</a>
     </li>
 </ul>
@@ -51,6 +54,48 @@
             <span id="event-filters-container" class="ms-2"></span>
         </div>
         <div id="messages"></div>
+    </div>
+
+    <!-- Вкладка Статистика -->
+    <div class="tab-pane fade" id="statistics" role="tabpanel" aria-labelledby="statistics-tab">
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body py-2">
+                        <div class="small text-muted">Messages</div>
+                        <div class="h5 mb-0" id="stats-total-messages">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body py-2">
+                        <div class="small text-muted">Data volume</div>
+                        <div class="h5 mb-0" id="stats-total-bytes">0B</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body py-2">
+                        <div class="small text-muted">Unique events</div>
+                        <div class="h5 mb-0" id="stats-unique-events">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive mb-3">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Count</th>
+                        <th>Bytes</th>
+                    </tr>
+                </thead>
+                <tbody id="event-stats-table-body"></tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Вкладка Настройки -->
@@ -149,6 +194,11 @@
     const maxMessages = 100;
     var isPaused = false;
     var eventFilter = {};
+    var monitorStats = {
+        totalMessages: 0,
+        totalBytes: 0,
+        perEvent: {}
+    };
     
     function sendMessage() {
         var input = document.getElementById('message-input');
@@ -161,6 +211,7 @@
     }
 
     function formatBytes(bytes) {
+        if (bytes === 0) return '0B';
         if (!bytes || bytes < 0) return '-';
         if (bytes < 1024) return bytes + 'B';
         return (bytes / 1024).toFixed(0) + 'K';
@@ -236,6 +287,54 @@
         else if (eventName == "changeObject") return 'bg-info';
         else if (eventName == "executedMethod") return 'bg-warning';
         else return 'bg-primary';
+    }
+
+    function getPayloadSize(payload) {
+        if (payload === null || payload === undefined) {
+            return 0;
+        }
+        try {
+            const encoded = new TextEncoder().encode(JSON.stringify(payload));
+            return encoded.length;
+        } catch (e) {
+            return new TextEncoder().encode(String(payload)).length;
+        }
+    }
+
+    function updateStats(eventName, payload) {
+        var payloadBytes = getPayloadSize(payload);
+        monitorStats.totalMessages += 1;
+        monitorStats.totalBytes += payloadBytes;
+
+        if (!monitorStats.perEvent[eventName]) {
+            monitorStats.perEvent[eventName] = { count: 0, bytes: 0 };
+        }
+        monitorStats.perEvent[eventName].count += 1;
+        monitorStats.perEvent[eventName].bytes += payloadBytes;
+        renderStats();
+    }
+
+    function renderStats() {
+        document.getElementById('stats-total-messages').textContent = monitorStats.totalMessages;
+        document.getElementById('stats-total-bytes').textContent = formatBytes(monitorStats.totalBytes);
+        var eventNames = Object.keys(monitorStats.perEvent);
+        document.getElementById('stats-unique-events').textContent = eventNames.length;
+
+        var tableBody = document.getElementById('event-stats-table-body');
+        tableBody.innerHTML = '';
+
+        eventNames
+            .sort((a, b) => monitorStats.perEvent[b].bytes - monitorStats.perEvent[a].bytes)
+            .forEach(function(name) {
+                var row = document.createElement('tr');
+                var item = monitorStats.perEvent[name];
+                row.innerHTML = `
+                    <td><span class="badge ${getEventBadgeColor(name)}">${name}</span></td>
+                    <td>${item.count}</td>
+                    <td>${formatBytes(item.bytes)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
     }
     
     function toggleEventFilter(eventName) {
@@ -388,6 +487,7 @@
         socket.onAny((eventName, ...args) => {
             //console.log('Received message:', eventName, args[0]);
             addMessage(eventName, args[0]);
+            updateStats(eventName, args[0]);
         });
         socket.on('clients', function(data) {
             var tableBody = document.querySelector('#data-table tbody');
