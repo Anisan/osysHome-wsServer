@@ -782,14 +782,25 @@ class wsServer(BasePlugin):
 
     def _handle_lsp_request(self, payload):
         """Обработка LSP запроса через вебсокет"""
-        action = (payload or {}).get("action")
-        code = (payload or {}).get("code", "")
+        payload = payload or {}
+        action = payload.get("action")
+        code = payload.get("code", "")
         line = payload.get("line")
         column = payload.get("column")
         timeout = payload.get("timeout", 1.5)
         object_name = payload.get("object_name")
         module_name = payload.get("module_name")
-        result = run_lsp_action(action, code, line=line, column=column, timeout=timeout, object_name=object_name, module_name=module_name)
+        exclude_custom_function = payload.get("exclude_custom_function")
+        result = run_lsp_action(
+            action,
+            code,
+            line=line,
+            column=column,
+            timeout=timeout,
+            object_name=object_name,
+            module_name=module_name,
+            exclude_custom_function=exclude_custom_function,
+        )
         result["success"] = True
         return result
 
