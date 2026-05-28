@@ -1,0 +1,17 @@
+{
+  "Clients": "Clienti",
+  "Enable object render debounce": "Abilita il rimbalzo del rendering degli oggetti",
+  "Enable property change debounce": "Abilita il rimbalzo della modifica della proprietà",
+  "Event Filter": "Filtro eventi",
+  "Object render debounce (ms)": "Antirimbalzo del rendering dell'oggetto (ms)",
+  "Page": "Pagina",
+  "Property change debounce (ms)": "Rimbalzo della modifica della proprietà (ms)",
+  "Recommended range: 40-150 ms": "Intervallo consigliato: 40-150 ms",
+  "Recommended range: 80-300 ms": "Intervallo consigliato: 80-300 ms",
+  "Render Optimization": "Ottimizzazione del rendering",
+  "Resume": "Riprendere",
+  "Subscriptions": "Abbonamenti",
+  "Traffic": "Traffico",
+  "Transport": "Trasporto",
+  "Websocket": "WebSocket"
+}

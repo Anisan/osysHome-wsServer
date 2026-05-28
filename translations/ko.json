@@ -1,0 +1,17 @@
+{
+  "Clients": "클라이언트",
+  "Enable object render debounce": "객체 렌더 디바운스 활성화",
+  "Enable property change debounce": "속성 변경 디바운스 활성화",
+  "Event Filter": "이벤트 필터",
+  "Object render debounce (ms)": "객체 렌더링 디바운스(ms)",
+  "Page": "페이지",
+  "Property change debounce (ms)": "속성 변경 디바운스(ms)",
+  "Recommended range: 40-150 ms": "권장 범위: 40-150ms",
+  "Recommended range: 80-300 ms": "권장 범위: 80-300ms",
+  "Render Optimization": "렌더링 최적화",
+  "Resume": "재개하다",
+  "Subscriptions": "구독",
+  "Traffic": "교통",
+  "Transport": "수송",
+  "Websocket": "웹소켓"
+}

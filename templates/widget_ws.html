@@ -18,7 +18,6 @@
         if (!actions || actions.length === 0) return '';
         
         const icons = {
-            'executedMethod': 'fas fa-code',
             'say': 'fas fa-comment-alt',
             'playsound': 'fas fa-volume-up',
             'notify': 'fas fa-bell',
@@ -87,10 +86,12 @@
                 // Подписки
                 var propsCount = item.subsProperties?.includes('*') ? '*' : (item.subsProperties?.length || 0);
                 var objectsCount = item.subsObjects?.includes('*') ? '*' : (item.subsObjects?.length || 0);
+                var methodsCount = item.subsMethods?.includes('*') ? '*' : (item.subsMethods?.length || 0);
                 
                 var actionIcons = getActionIcons(item.subsActions);
                 var propsBadge = getCountBadge(propsCount, 'fas fa-file-alt', "Properties");
                 var objectsBadge = getCountBadge(objectsCount, 'fas fa-cube', "Objects");
+                var methodsBadge = getCountBadge(methodsCount, 'fas fa-code', "Methods");
                 var dataIcons = getDataIcons(item.subsData);
                 
                 var li = document.createElement('div');
@@ -104,6 +105,7 @@
                     <div class="d-flex align-items-center">
                         ${propsBadge}
                         ${objectsBadge}
+                        ${methodsBadge}
                         ${actionIcons}
                         ${dataIcons}
                         <small class="text-muted ms-2 me-2">${traffic}</small>

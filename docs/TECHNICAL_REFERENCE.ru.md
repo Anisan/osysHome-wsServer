@@ -101,21 +101,47 @@ socket.emit('subscribeObjects', ['Light1', 'Thermostat1']);
 socket.emit('unsubscribeObjects', ['Light1']);
 ```
 
-### 3.9. `subscribeActions`
+### 3.9. `subscribeMethods`
 
-Подписка на действия и служебные события:
+Подписка на результаты выполнения методов в формате `Object.method`.
 
 ```javascript
-socket.emit('subscribeActions', ['say', 'notify', 'playsound', 'executedMethod']);
+socket.emit('subscribeMethods', ['Light1.toggle', 'Sensor1.refresh']);
 ```
 
-### 3.10. `unsubscribeActions`
+Примечания:
+
+- можно подписаться на все методы через `['*']`;
+- при подписке сервер сразу отправляет текущее состояние метода;
+- ответ приходит событием `subscribedMethods`.
+
+### 3.10. `unsubscribeMethods`
+
+```javascript
+socket.emit('unsubscribeMethods', ['Light1.toggle']);
+```
+
+### 3.11. `subscribeActions`
+
+Подписка на сервисные действия:
+
+```javascript
+socket.emit('subscribeActions', ['say', 'notify', 'playsound']);
+```
+
+Примечания:
+
+- `executedMethod` больше не подписывается через `subscribeActions`;
+- используйте `subscribeMethods`;
+- для обратной совместимости `subscribeActions` с `executedMethod` преобразуется в `subscribeMethods(['*'])`.
+
+### 3.12. `unsubscribeActions`
 
 ```javascript
 socket.emit('unsubscribeActions', ['notify']);
 ```
 
-### 3.11. `subscribeData`
+### 3.13. `subscribeData`
 
 Подписка на произвольные типы данных, которые сервер отправляет через `sendData(...)`:
 
@@ -129,7 +155,7 @@ socket.emit('subscribeData', ['zigbee', 'telemetry']);
 socket.emit('subscribeData', ['*']);
 ```
 
-### 3.12. `unsubscribeData`
+### 3.14. `unsubscribeData`
 
 ```javascript
 socket.emit('unsubscribeData', ['telemetry']);
@@ -265,7 +291,13 @@ Payload содержит:
 - `exec_result`;
 - `exec_time`.
 
-Чтобы получать событие, клиент должен подписаться на `executedMethod` через `subscribeActions`.
+Чтобы получать событие, клиент должен подписаться на метод через `subscribeMethods`.
+
+Пример:
+
+```javascript
+socket.emit('subscribeMethods', ['Light1.toggle']);
+```
 
 ### 4.5. `say`
 
@@ -361,7 +393,7 @@ plugin.say("Система запущена")
 
 ### 5.5. `executedMethod(obj, method)`
 
-Рассылает `executedMethod` клиентам, подписанным на соответствующее действие.
+Рассылает `executedMethod` клиентам, подписанным на этот метод (или `*`).
 
 ### 5.6. `sendData(typeData, data)`
 

@@ -43,7 +43,8 @@ WebSocket сервер на базе SocketIO для обеспечения дв
 - `disconnect` - отключение клиента
 - `subscribeProperties` - подписка на изменения свойств
 - `subscribeObjects` - подписка на изменения объектов
-- `subscribeActions` - подписка на выполнение действий
+- `subscribeMethods` - подписка на результаты выполнения методов
+- `subscribeActions` - подписка на say/notify/playsound
 - `subscribeData` - подписка на пользовательские данные
 - `setProperty` - установка значения свойства
 - `callMethod` - вызов метода объекта
@@ -97,8 +98,9 @@ socket.on('connect', function() {
     // Подписка на все свойства
     socket.emit('subscribeProperties', ['*']);
     
-    // Подписка на события
-    socket.emit('subscribeActions', ['say', 'executedMethod']);
+    // Подписка на сервисные действия и результаты методов
+    socket.emit('subscribeActions', ['say', 'notify', 'playsound']);
+    socket.emit('subscribeMethods', ['ObjectName.methodName']);
 });
 
 // Обработка изменения свойства

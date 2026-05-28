@@ -43,7 +43,8 @@ The module supports the following event types:
 - `disconnect` - client disconnection
 - `subscribeProperties` - subscription to property changes
 - `subscribeObjects` - subscription to object changes
-- `subscribeActions` - subscription to action execution
+- `subscribeMethods` - subscription to method execution results
+- `subscribeActions` - subscription to say/notify/playsound
 - `subscribeData` - subscription to custom data
 - `setProperty` - setting property value
 - `callMethod` - calling object method
@@ -95,8 +96,9 @@ socket.on('connect', function() {
     // Subscribe to all properties
     socket.emit('subscribeProperties', ['*']);
     
-    // Subscribe to events
-    socket.emit('subscribeActions', ['say', 'executedMethod']);
+    // Subscribe to service actions and method results
+    socket.emit('subscribeActions', ['say', 'notify', 'playsound']);
+    socket.emit('subscribeMethods', ['ObjectName.methodName']);
 });
 
 // Handle property change

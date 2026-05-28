@@ -1,0 +1,17 @@
+{
+  "Clients": "Klienci",
+  "Enable object render debounce": "Włącz odbijanie renderowania obiektu",
+  "Enable property change debounce": "Włącz odrzucanie zmiany właściwości",
+  "Event Filter": "Filtr zdarzeń",
+  "Object render debounce (ms)": "Odbicie renderowania obiektu (ms)",
+  "Page": "Strona",
+  "Property change debounce (ms)": "Odrzucenie zmiany właściwości (ms)",
+  "Recommended range: 40-150 ms": "Zalecany zakres: 40-150 ms",
+  "Recommended range: 80-300 ms": "Zalecany zakres: 80-300 ms",
+  "Render Optimization": "Optymalizacja renderowania",
+  "Resume": "Wznawiać",
+  "Subscriptions": "Subskrypcje",
+  "Traffic": "Ruch drogowy",
+  "Transport": "Transport",
+  "Websocket": "Gniazdo internetowe"
+}

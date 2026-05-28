@@ -101,21 +101,47 @@ The wildcard form `['*']` is supported.
 socket.emit('unsubscribeObjects', ['Light1']);
 ```
 
-### 3.9. `subscribeActions`
+### 3.9. `subscribeMethods`
 
-Subscribe to actions and service events:
+Subscribe to method execution results in `Object.method` format.
 
 ```javascript
-socket.emit('subscribeActions', ['say', 'notify', 'playsound', 'executedMethod']);
+socket.emit('subscribeMethods', ['Light1.toggle', 'Sensor1.refresh']);
 ```
 
-### 3.10. `unsubscribeActions`
+Notes:
+
+- you can subscribe to everything with `['*']`;
+- when subscribing, the server immediately sends the current method state;
+- the response arrives as `subscribedMethods`.
+
+### 3.10. `unsubscribeMethods`
+
+```javascript
+socket.emit('unsubscribeMethods', ['Light1.toggle']);
+```
+
+### 3.11. `subscribeActions`
+
+Subscribe to service actions:
+
+```javascript
+socket.emit('subscribeActions', ['say', 'notify', 'playsound']);
+```
+
+Notes:
+
+- `executedMethod` is no longer subscribed through `subscribeActions`;
+- use `subscribeMethods` instead;
+- for backward compatibility, `subscribeActions` with `executedMethod` is mapped to `subscribeMethods(['*'])`.
+
+### 3.12. `unsubscribeActions`
 
 ```javascript
 socket.emit('unsubscribeActions', ['notify']);
 ```
 
-### 3.11. `subscribeData`
+### 3.13. `subscribeData`
 
 Subscribe to arbitrary data types that the server sends via `sendData(...)`:
 
@@ -129,7 +155,7 @@ You can subscribe to everything:
 socket.emit('subscribeData', ['*']);
 ```
 
-### 3.12. `unsubscribeData`
+### 3.14. `unsubscribeData`
 
 ```javascript
 socket.emit('unsubscribeData', ['telemetry']);
@@ -265,7 +291,13 @@ The payload contains:
 - `exec_result`;
 - `exec_time`.
 
-To receive this event, the client must subscribe to `executedMethod` through `subscribeActions`.
+To receive this event, the client must subscribe to the method through `subscribeMethods`.
+
+Example:
+
+```javascript
+socket.emit('subscribeMethods', ['Light1.toggle']);
+```
 
 ### 4.5. `say`
 
@@ -361,7 +393,7 @@ Debounce-related config keys:
 
 ### 5.5. `executedMethod(obj, method)`
 
-Broadcasts `executedMethod` to clients subscribed to that action.
+Broadcasts `executedMethod` to clients subscribed to that method (or `*`).
 
 ### 5.6. `sendData(typeData, data)`
 

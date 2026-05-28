@@ -1,0 +1,17 @@
+{
+  "Clients": "客户",
+  "Enable object render debounce": "启用对象渲染去抖动",
+  "Enable property change debounce": "启用属性更改去抖",
+  "Event Filter": "事件过滤器",
+  "Object render debounce (ms)": "对象渲染去抖（毫秒）",
+  "Page": "页",
+  "Property change debounce (ms)": "属性变化去抖（毫秒）",
+  "Recommended range: 40-150 ms": "推荐范围：40-150 毫秒",
+  "Recommended range: 80-300 ms": "推荐范围：80-300 毫秒",
+  "Render Optimization": "渲染优化",
+  "Resume": "恢复",
+  "Subscriptions": "订阅",
+  "Traffic": "交通",
+  "Transport": "运输",
+  "Websocket": "网络套接字"
+}

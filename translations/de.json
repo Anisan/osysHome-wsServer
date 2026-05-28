@@ -1,0 +1,17 @@
+{
+  "Clients": "Kunden",
+  "Enable object render debounce": "Aktivieren Sie die Objektrender-Entprellung",
+  "Enable property change debounce": "Aktivieren Sie die Entprellung bei Eigenschaftsänderungen",
+  "Event Filter": "Ereignisfilter",
+  "Object render debounce (ms)": "Objekt-Rendering-Entprellung (ms)",
+  "Page": "Seite",
+  "Property change debounce (ms)": "Eigenschaftsänderungs-Entprellung (ms)",
+  "Recommended range: 40-150 ms": "Empfohlener Bereich: 40–150 ms",
+  "Recommended range: 80-300 ms": "Empfohlener Bereich: 80–300 ms",
+  "Render Optimization": "Render-Optimierung",
+  "Resume": "Wieder aufnehmen",
+  "Subscriptions": "Abonnements",
+  "Traffic": "Verkehr",
+  "Transport": "Transport",
+  "Websocket": "Websocket"
+}

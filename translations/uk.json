@@ -1,0 +1,17 @@
+{
+  "Clients": "Клієнти",
+  "Enable object render debounce": "Включити debounce рендеру об'єктів",
+  "Enable property change debounce": "Включити debounce зміни властивостей",
+  "Event Filter": "Фільтр подій",
+  "Object render debounce (ms)": "Debounce рендер об'єкта (мс)",
+  "Page": "Сторінка",
+  "Property change debounce (ms)": "Debounce зміни властивості (мс)",
+  "Recommended range: 40-150 ms": "Рекомендований діапазон: 40-150 мс",
+  "Recommended range: 80-300 ms": "Рекомендований діапазон: 80-300 мс",
+  "Render Optimization": "Оптимізація рендеру",
+  "Resume": "Продовжити",
+  "Subscriptions": "Передплати",
+  "Traffic": "Трафік",
+  "Transport": "Транспорт",
+  "Websocket": "Websocket"
+}

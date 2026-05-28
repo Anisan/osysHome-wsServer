@@ -1,0 +1,17 @@
+{
+  "Clients": "Clientela",
+  "Enable object render debounce": "Habilitar el rebote de renderizado de objetos",
+  "Enable property change debounce": "Habilitar rebote de cambio de propiedad",
+  "Event Filter": "Filtro de eventos",
+  "Object render debounce (ms)": "Rebote de renderizado de objetos (ms)",
+  "Page": "Página",
+  "Property change debounce (ms)": "Rebote de cambio de propiedad (ms)",
+  "Recommended range: 40-150 ms": "Rango recomendado: 40-150 ms",
+  "Recommended range: 80-300 ms": "Rango recomendado: 80-300 ms",
+  "Render Optimization": "Optimización de renderizado",
+  "Resume": "Reanudar",
+  "Subscriptions": "Suscripciones",
+  "Traffic": "Tráfico",
+  "Transport": "Transporte",
+  "Websocket": "Websocket"
+}

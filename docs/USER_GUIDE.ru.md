@@ -209,7 +209,8 @@ const socket = io();
 socket.on('connect', () => {
   socket.emit('subscribeProperties', ['Light1.state']);
   socket.emit('subscribeObjects', ['Light1']);
-  socket.emit('subscribeActions', ['say', 'notify', 'playsound', 'executedMethod']);
+  socket.emit('subscribeMethods', ['Light1.toggle']);
+  socket.emit('subscribeActions', ['say', 'notify', 'playsound']);
   socket.emit('subscribeData', ['telemetry']);
 });
 

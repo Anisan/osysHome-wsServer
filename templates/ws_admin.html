@@ -221,7 +221,6 @@
         if (!actions || actions.length === 0) return '';
         
         const icons = {
-            'executedMethod': 'fas fa-code',
             'say': 'fas fa-comment-alt',
             'playsound': 'fas fa-volume-up',
             'notify': 'fas fa-bell',
@@ -479,7 +478,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         socket.on('connect', function() {
             sid = socket.id;
-            socket.emit('subscribeActions', ['executedMethod']);
+            socket.emit('subscribeMethods', ["*"]);
             socket.emit('subscribeProperties',["*"]);
             socket.emit('subscribeObjects',["*"]);
             socket.emit('subscribeData',["*"]);
@@ -502,10 +501,12 @@
                 // Подписки
                 var propsCount = item.subsProperties && item.subsProperties.includes('*') ? '*' : (item.subsProperties ? item.subsProperties.length : 0);
                 var objectsCount = item.subsObjects && item.subsObjects.includes('*') ? '*' : (item.subsObjects ? item.subsObjects.length : 0);
+                var methodsCount = item.subsMethods && item.subsMethods.includes('*') ? '*' : (item.subsMethods ? item.subsMethods.length : 0);
 
                 var actionIcons = getActionIcons(item.subsActions);
                 var propsBadge = getCountBadge(propsCount, 'fas fa-file-alt', "Properties");
                 var objectsBadge = getCountBadge(objectsCount, 'fas fa-cube', "Objects");
+                var methodsBadge = getCountBadge(methodsCount, 'fas fa-code', "Methods");
                 var dataIcons = getDataIcons(item.subsData);
 
                 row.innerHTML = `
@@ -521,6 +522,7 @@
                     <td>
                         ${propsBadge}
                         ${objectsBadge}
+                        ${methodsBadge}
                         ${actionIcons}
                         ${dataIcons}
                     </td>
@@ -529,7 +531,7 @@
             });
         });
         getClients()
-        socket.emit('subscribeActions', ['executedMethod']);
+        socket.emit('subscribeMethods', ["*"]);
         socket.emit('subscribeProperties',["*"]);
         socket.emit('subscribeObjects',["*"]);
         socket.emit('subscribeData',["*"]);

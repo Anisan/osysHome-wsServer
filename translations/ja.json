@@ -1,0 +1,17 @@
+{
+  "Clients": "クライアント",
+  "Enable object render debounce": "オブジェクト レンダー デバウンスを有効にする",
+  "Enable property change debounce": "プロパティ変更のデバウンスを有効にする",
+  "Event Filter": "イベントフィルター",
+  "Object render debounce (ms)": "オブジェクトのレンダリング デバウンス (ミリ秒)",
+  "Page": "ページ",
+  "Property change debounce (ms)": "プロパティ変更デバウンス (ミリ秒)",
+  "Recommended range: 40-150 ms": "推奨範囲: 40 ～ 150 ミリ秒",
+  "Recommended range: 80-300 ms": "推奨範囲: 80 ～ 300 ミリ秒",
+  "Render Optimization": "レンダリングの最適化",
+  "Resume": "再開する",
+  "Subscriptions": "定期購入",
+  "Traffic": "渋滞",
+  "Transport": "輸送",
+  "Websocket": "ウェブソケット"
+}

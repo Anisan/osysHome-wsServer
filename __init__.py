@@ -8,7 +8,8 @@ WebSocket сервер на базе SocketIO для обеспечения дв
 - Подключение/отключение клиентов с аутентификацией
 - Подписки на изменения свойств объектов (subscribeProperties)
 - Подписки на изменения объектов (subscribeObjects)
-- Подписки на выполнение методов (subscribeActions)
+- Подписки на выполнение методов (subscribeMethods)
+- Подписки на действия say/notify/playsound (subscribeActions)
 - Подписки на пользовательские данные (subscribeData)
 - Мониторинг подключенных клиентов с информацией о транспорте и статистике
 - Установка свойств объектов через WebSocket (setProperty)
@@ -150,6 +151,7 @@ class wsServer(BasePlugin):
                     "stats": {"recvBytes": 0, "sentBytes": 0},
                     "subsProperties": [],
                     "subsObjects": [],
+                    "subsMethods": [],
                     "subsData": [],
                     "subsActions": [],
                 }
@@ -269,6 +271,49 @@ class wsServer(BasePlugin):
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
+        @self.socketio.on("subscribeMethods")
+        def handleSubscribeMethods(subsList):
+            self.incrementRecv(request.sid, "subscribeMethods", subsList)
+            try:
+                self.logger.debug("Received subscribe methods: %s", str(subsList))
+                if request.sid in self.connected_clients:
+                    client = self.connected_clients[request.sid]
+                    sub = client["subsMethods"]
+                    subscribed = []
+                    for obj_method in subsList:
+                        if obj_method not in sub:
+                            if obj_method == '*':
+                                sub.append(obj_method)
+                                subscribed.append(obj_method)
+                                continue
+                            split = obj_method.split(".")
+                            if len(split) != 2:
+                                continue
+                            sub.append(obj_method)
+                            subscribed.append(obj_method)
+                            self.sendMethod(request.sid, obj_method)
+                        else:
+                            subscribed.append(obj_method)
+                            self.sendMethod(request.sid, obj_method)
+
+                    self.socketio.emit("subscribedMethods", subscribed, room=request.sid)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
+        @self.socketio.on("unsubscribeMethods")
+        def handleUnsubscribeMethods(unsubsList):
+            self.incrementRecv(request.sid, "unsubscribeMethods", unsubsList)
+            try:
+                self.logger.debug("Received unsubscribe methods: %s", str(unsubsList))
+                if request.sid in self.connected_clients:
+                    client = self.connected_clients[request.sid]
+                    sub = client["subsMethods"]
+                    for obj_method in unsubsList:
+                        if obj_method in sub:
+                            sub.remove(obj_method)
+            except Exception as ex:
+                self.logger.exception(ex, exc_info=True)
+
         @self.socketio.on("subscribeActions")
         def handleSubscribeActions(subsList):
             self.incrementRecv(request.sid,"subscribeActions",subsList)
@@ -277,9 +322,15 @@ class wsServer(BasePlugin):
                 if request.sid in self.connected_clients:
                     client = self.connected_clients[request.sid]
                     sub = client["subsActions"]
-                    for prop in subsList:
-                        if prop not in sub:
-                            sub.append(prop)
+                    for action in subsList:
+                        if action == "executedMethod":
+                            # Backward compatibility: old clients used subscribeActions.
+                            method_sub = client["subsMethods"]
+                            if "*" not in method_sub:
+                                method_sub.append("*")
+                            continue
+                        if action not in sub:
+                            sub.append(action)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
@@ -291,9 +342,14 @@ class wsServer(BasePlugin):
                 if request.sid in self.connected_clients:
                     client = self.connected_clients[request.sid]
                     sub = client["subsActions"]
-                    for prop in unsubsList:
-                        if prop in sub:
-                            sub.remove(prop)
+                    for action in unsubsList:
+                        if action == "executedMethod":
+                            method_sub = client["subsMethods"]
+                            if "*" in method_sub:
+                                method_sub.remove("*")
+                            continue
+                        if action in sub:
+                            sub.remove(action)
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 
@@ -466,6 +522,29 @@ class wsServer(BasePlugin):
             return timezone
         return 'UTC'
 
+    def sendMethod(self, sid, obj_method):
+        split = obj_method.split(".")
+        if len(split) != 2:
+            return False
+        obj = split[0]
+        method = split[1]
+        o = getObject(obj)
+        if o and method in o.methods:
+            username = self.connected_clients[sid]['username']
+            timezone = self._getTimezone(username)
+            m = o.methods[method]
+            message = {
+                "method": obj_method,
+                "source": m.source,
+                "executed": str(convert_utc_to_local(m.executed, timezone)),
+                "exec_params": json.dumps(m.exec_params, cls=CustomJSONEncoder),
+                "exec_result": m.exec_result,
+                "exec_time": m.exec_time,
+            }
+            self.socketio.emit("executedMethod", message, room=sid)
+            return True
+        return False
+
     def sendProperty(self, sid, obj_prop):
         split = obj_prop.split(".")
         if len(split) != 2:
@@ -551,6 +630,13 @@ class wsServer(BasePlugin):
         subscribers = []
         for sid, client in list(self.connected_clients.items()):
             if property_name in client["subsProperties"] or "*" in client["subsProperties"]:
+                subscribers.append((sid, client))
+        return subscribers
+
+    def _get_method_subscribers(self, method_name):
+        subscribers = []
+        for sid, client in list(self.connected_clients.items()):
+            if method_name in client["subsMethods"] or "*" in client["subsMethods"]:
                 subscribers.append((sid, client))
         return subscribers
 
@@ -665,22 +751,27 @@ class wsServer(BasePlugin):
     def executedMethod(self, obj, method):
         try:
             name = obj + "." + method
+            subscribers = self._get_method_subscribers(name)
+            if not subscribers:
+                return
+
             o = getObject(obj)
+            if o is None or method not in o.methods:
+                return
+
             m = o.methods[method]
-            message = {
+            base_message = {
                 "method": name,
                 "source": m.source,
-                "executed": str(m.executed),
                 "exec_params": json.dumps(m.exec_params, cls=CustomJSONEncoder),
                 "exec_result": m.exec_result,
-                "exec_time":m.exec_time,
+                "exec_time": m.exec_time,
             }
-            self.logger.debug(message)
-            for sid, client in list(self.connected_clients.items()):
-                if "executedMethod" not in client["subsActions"]:
-                    continue
+            self.logger.debug(base_message)
+            for sid, client in subscribers:
                 username = client["username"]
                 timezone = self._getTimezone(username)
+                message = dict(base_message)
                 message["executed"] = str(convert_utc_to_local(m.executed, timezone))
                 self.socketio.emit("executedMethod", message, room=sid)
         except Exception as ex:
