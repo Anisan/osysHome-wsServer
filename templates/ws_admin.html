@@ -24,29 +24,34 @@
 <div class="tab-content" id="myTabContent">
     <!-- Вкладка Клиенты -->
     <div class="tab-pane fade show active" id="clients" role="tabpanel" aria-labelledby="clients-tab">
-        <button class="btn btn-primary mb-3" onclick="getClients()"><span class="fas fa-rotate me-2"></span>{{ _('Refresh')}}</button>
-        <table id="data-table" class="table table-hover">
-            <thead>
-                <tr>
-                    <th>{{ _('Username')}}</th>
-                    <th>IP</th>
-                    <th>SID</th>
-                    <th>{{ _('Connected')}}</th>
-                    <th>{{ _('Transport')}}</th>
-                    <th>{{ _('Page')}}</th>
-                    <th>{{ _('Traffic')}}</th>
-                    <th>{{ _('Subscriptions')}}</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Data clients -->
-            </tbody>
-        </table>
+        <div class="d-grid d-sm-inline-block mb-3">
+            <button class="btn btn-primary" onclick="getClients()"><span class="fas fa-rotate me-2"></span>{{ _('Refresh')}}</button>
+        </div>
+        <div class="table-responsive ws-clients-table-wrapper">
+            <table id="data-table" class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>{{ _('Username')}}</th>
+                        <th>IP</th>
+                        <th>SID</th>
+                        <th>{{ _('Connected')}}</th>
+                        <th>{{ _('Transport')}}</th>
+                        <th>{{ _('Page')}}</th>
+                        <th>{{ _('Traffic')}}</th>
+                        <th>{{ _('Subscriptions')}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data clients -->
+                </tbody>
+            </table>
+        </div>
+        <div id="clients-mobile-list" class="ws-clients-mobile-list"></div>
     </div>
     
     <!-- Вкладка Мониторинг -->
     <div class="tab-pane fade" id="monitoring" role="tabpanel" aria-labelledby="monitoring-tab">
-        <div class="mt-3 mb-3">
+        <div class="mt-3 mb-3 ws-monitor-toolbar">
             <button id="pause-btn" class="btn btn-warning" onclick="togglePause()" data-pause-text="{{ _('Pause')}}" data-resume-text="{{ _('Resume')}}">
                 <span class="fas fa-pause me-2"></span>{{ _('Pause')}}
             </button>
@@ -174,6 +179,12 @@
     </div>
 </div>
 <style>
+    .nav-tabs {
+        flex-wrap: wrap;
+    }
+    .ws-clients-mobile-list {
+        display: none;
+    }
     .ws-action-icons {
         display: inline-flex;
         gap: 3px;
@@ -187,6 +198,23 @@
     }
     .ws-settings-form {
         max-width: 420px;
+    }
+    .ws-monitor-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .ws-client-card .ws-client-sid {
+        word-break: break-all;
+    }
+    @media (max-width: 767.98px) {
+        .ws-clients-table-wrapper {
+            display: none;
+        }
+        .ws-clients-mobile-list {
+            display: block;
+        }
     }
 </style>
 <script>
@@ -490,7 +518,9 @@
         });
         socket.on('clients', function(data) {
             var tableBody = document.querySelector('#data-table tbody');
+            var mobileList = document.getElementById('clients-mobile-list');
             tableBody.innerHTML = '';
+            mobileList.innerHTML = '';
             Object.keys(data).forEach(function(key) {
                 var item = data[key]
                 var row = document.createElement('tr');
@@ -528,6 +558,31 @@
                     </td>
                 `;
                 tableBody.appendChild(row);
+
+                var mobileCard = document.createElement('div');
+                mobileCard.className = 'card mb-2 ws-client-card';
+                mobileCard.innerHTML = `
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <div class="fw-semibold">${item.username || 'anon'}</div>
+                            ${current}
+                        </div>
+                        <div class="small text-muted mb-1">IP: ${item.ip || '-'}</div>
+                        <div class="small text-muted mb-1 ws-client-sid">SID: ${key}</div>
+                        <div class="small text-muted mb-1">{{ _('Connected')}}: ${item.connected || '-'}</div>
+                        <div class="small text-muted mb-1">{{ _('Transport')}}: ${item.transport || '-'}</div>
+                        <div class="small text-muted mb-1">{{ _('Page')}}: ${item.page || '-'}</div>
+                        <div class="small text-muted mb-2">{{ _('Traffic')}}: ${item.stats ? `↑${formatBytes(item.stats.sentBytes)} ↓${formatBytes(item.stats.recvBytes)}` : '-'}</div>
+                        <div class="d-flex flex-wrap gap-1">
+                            ${propsBadge}
+                            ${objectsBadge}
+                            ${methodsBadge}
+                            ${actionIcons}
+                            ${dataIcons}
+                        </div>
+                    </div>
+                `;
+                mobileList.appendChild(mobileCard);
             });
         });
         getClients()

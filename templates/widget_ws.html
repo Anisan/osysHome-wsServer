@@ -95,14 +95,14 @@
                 var dataIcons = getDataIcons(item.subsData);
                 
                 var li = document.createElement('div');
-                li.className = 'd-flex justify-content-between align-items-center py-1 px-2 border-bottom';
+                li.className = 'client-row py-2 px-2 border-bottom';
                 li.innerHTML = `
-                    <div class="text-truncate" style="max-width: 40%">
+                    <div class="client-main text-truncate">
                         <strong>${item.username || 'anon'}</strong>
                         <small class="text-muted">@${item.ip}</small>
                         ${current}
                     </div>
-                    <div class="d-flex align-items-center">
+                    <div class="client-meta d-flex align-items-center">
                         ${propsBadge}
                         ${objectsBadge}
                         ${methodsBadge}
@@ -131,6 +131,31 @@
     }
     .badge i {
         margin-right: 2px;
+    }
+    #clients-list .client-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    #clients-list .client-main {
+        min-width: 0;
+    }
+    #clients-list .client-meta {
+        min-width: 0;
+    }
+    @media (max-width: 767.98px) {
+        #clients-list .client-row {
+            display: block;
+        }
+        #clients-list .client-main {
+            margin-bottom: 0.35rem;
+        }
+        #clients-list .client-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
     }
 </style>
 

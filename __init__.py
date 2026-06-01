@@ -215,8 +215,7 @@ class wsServer(BasePlugin):
                             if obj_prop == '*':
                                 sub.append(obj_prop)
                                 continue
-                            split = obj_prop.split(".")
-                            if len(split) != 2:
+                            if "." not in obj_prop:
                                 continue
                             sub.append(obj_prop)
                             subscribed.append(obj_prop)
@@ -546,11 +545,9 @@ class wsServer(BasePlugin):
         return False
 
     def sendProperty(self, sid, obj_prop):
-        split = obj_prop.split(".")
-        if len(split) != 2:
+        if "." not in obj_prop:
             return False
-        obj = split[0]
-        prop = split[1]
+        obj, prop = obj_prop.rsplit(".", 1)
         o = getObject(obj)
         if o:
             if prop in o.properties:
