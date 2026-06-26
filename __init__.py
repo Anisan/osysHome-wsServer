@@ -47,7 +47,7 @@ from flask import render_template, request, send_file, abort
 from flask_login import current_user
 from app.database import convert_utc_to_local, get_now_to_utc
 from app.logging_config import security_audit_log
-from app.core.utils import CustomJSONEncoder
+from app.core.utilities.json_encoding import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
 from app.core.lib.object import getObject, callMethod, getProperty
 from app.extensions import cache
