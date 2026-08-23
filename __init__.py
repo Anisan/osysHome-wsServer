@@ -45,7 +45,13 @@ from app.authentication.handlers import handle_user_required
 
 from flask import render_template, request, send_file, abort
 from flask_login import current_user
-from app.database import convert_utc_to_local, get_now_to_utc
+from app.database import (
+    convert_utc_to_local,
+    get_now_to_utc,
+    resolve_timezone,
+    _timezone_from_browser,
+    _is_valid_iana_timezone,
+)
 from app.logging_config import security_audit_log
 from app.core.utilities.json_encoding import CustomJSONEncoder
 from app.core.main.BasePlugin import BasePlugin
@@ -62,7 +68,7 @@ class wsServer(BasePlugin):
         self.title = "Websocket"
         self.description = """Websocket server (SocketIO)"""
         self.category = "System"
-        self.version = "1.1"
+        self.version = "1.4"
         self.actions = ["say", "proxy", "playsound", "widget"]
         # Dictionary connected clients
         self.connected_clients = {}
@@ -148,6 +154,7 @@ class wsServer(BasePlugin):
                     "connected": get_now_to_utc().strftime("%Y-%m-%d %H:%M:%S"),
                     "transport": self.socketio.server.transport(request.sid),
                     "page": request.path,
+                    "browser_timezone": _timezone_from_browser(),
                     "stats": {"recvBytes": 0, "sentBytes": 0},
                     "subsProperties": [],
                     "subsObjects": [],
@@ -511,15 +518,27 @@ class wsServer(BasePlugin):
             # Обновляем счетчик полученных байт
             self.connected_clients[client_id]['stats']['recvBytes'] += length_data
 
-    def _getTimezone(self, username):
+    def _getTimezone(self, username, sid=None):
+        """Resolved IANA zone for WS payloads (never raw ``auto``)."""
+        raw = None
         if username:
-            timezone = cache.get(f"{username}.timezone")
-            if not timezone:
-                timezone = getProperty(f"{username}.timezone")
-                if timezone:
-                    cache.set(f"{username}.timezone", timezone, timeout=3600)
-            return timezone
-        return 'UTC'
+            raw = cache.get(f"{username}.timezone")
+            if raw is None:
+                raw = getProperty(f"{username}.timezone")
+                if raw is not None:
+                    cache.set(f"{username}.timezone", raw, timeout=3600)
+            if raw:
+                tz = str(raw).strip()
+                if tz.lower() != "auto" and _is_valid_iana_timezone(tz):
+                    return tz
+        browser = None
+        if sid and sid in self.connected_clients:
+            browser = self.connected_clients[sid].get("browser_timezone")
+        if not browser:
+            browser = _timezone_from_browser()
+        if browser and _is_valid_iana_timezone(browser):
+            return browser
+        return resolve_timezone(raw)
 
     def sendMethod(self, sid, obj_method):
         split = obj_method.split(".")
@@ -530,7 +549,7 @@ class wsServer(BasePlugin):
         o = getObject(obj)
         if o and method in o.methods:
             username = self.connected_clients[sid]['username']
-            timezone = self._getTimezone(username)
+            timezone = self._getTimezone(username, sid)
             m = o.methods[method]
             message = {
                 "method": obj_method,
@@ -553,14 +572,14 @@ class wsServer(BasePlugin):
             if prop in o.properties:
                 username = self.connected_clients[sid]['username']
 
-                timezone = self._getTimezone(username)
+                timezone = self._getTimezone(username, sid)
                 p = o.properties[prop]
                 value = p.getValue()
                 message = {
                     "property": obj_prop,
                     "value": str(value) if isinstance(value, datetime.datetime) else value,
                     "source": p.source,
-                    "changed": str(convert_utc_to_local(p.changed, timezone)),
+                    "changed": str(convert_utc_to_local(p.changed, timezone)) if p.changed else None,
                 }
                 self.socketio.emit("changeProperty", message, room=sid)
                 return True
@@ -666,12 +685,12 @@ class wsServer(BasePlugin):
             for sid, client in subscribers:
                 try:
                     username = client["username"]
-                    timezone = self._getTimezone(username)
+                    timezone = self._getTimezone(username, sid)
                     message = {
                         "property": name,
                         "value": state[0],
                         "source": p.source,
-                        "changed": str(convert_utc_to_local(p.changed, timezone)),
+                        "changed": str(convert_utc_to_local(p.changed, timezone)) if p.changed else None,
                     }
                     self.socketio.emit("changeProperty", message, room=sid)
                     self.logger.debug(message)
@@ -767,7 +786,7 @@ class wsServer(BasePlugin):
             self.logger.debug(base_message)
             for sid, client in subscribers:
                 username = client["username"]
-                timezone = self._getTimezone(username)
+                timezone = self._getTimezone(username, sid)
                 message = dict(base_message)
                 message["executed"] = str(convert_utc_to_local(m.executed, timezone))
                 self.socketio.emit("executedMethod", message, room=sid)
@@ -858,7 +877,7 @@ class wsServer(BasePlugin):
 
             for sid, client in list(self.connected_clients.items()):
                 username = client["username"]
-                timezone = self._getTimezone(username)
+                timezone = self._getTimezone(username, sid)
                 # Build a JSON‑serializable payload per client without mutating the original data
                 payload = dict_format(data, timezone)
                 if typeData in client["subsData"] or "*" in client["subsData"]:
