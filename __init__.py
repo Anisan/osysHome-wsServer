@@ -68,8 +68,8 @@ class wsServer(BasePlugin):
         self.title = "Websocket"
         self.description = """Websocket server (SocketIO)"""
         self.category = "System"
-        self.version = "1.4"
-        self.actions = ["say", "proxy", "playsound", "widget"]
+        self.version = "1.5"
+        self.actions = ["say", "proxy", "playsound", "widget", "notify"]
         # Dictionary connected clients
         self.connected_clients = {}
         # Last sent rendered HTML per object for changeObject de-duplication
@@ -803,7 +803,7 @@ class wsServer(BasePlugin):
         except Exception as ex:
             self.logger.exception(ex, exc_info=True)
 
-    def notify(self, data:dict):
+    def notify(self, data: dict):
         try:
             for sid, client in list(self.connected_clients.items()):
                 if "notify" not in client["subsActions"]:
