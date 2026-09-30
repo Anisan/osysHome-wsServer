@@ -1,5 +1,4 @@
 {
-  "Clients": "Clientèle",
   "Enable object render debounce": "Activer l'anti-rebond du rendu des objets",
   "Enable property change debounce": "Activer l'anti-rebond des modifications de propriété",
   "Event Filter": "Filtre d'événements",
@@ -11,7 +10,6 @@
   "Render Optimization": "Optimisation du rendu",
   "Resume": "CV",
   "Subscriptions": "Abonnements",
-  "Traffic": "Trafic",
   "Transport": "Transport",
   "Websocket": "Prise Web"
 }

@@ -75,7 +75,7 @@ Allows real-time monitoring of WebSocket events:
 
 - **Technologies**: Flask-SocketIO, Socket.IO
 - **Transports**: WebSocket, Long Polling (automatic fallback)
-- **Security**: Authentication via Flask-Login
+- **Security**: Authentication via Flask-Login session **or API key** (`auth.apikey` / `?apikey=` / `X-API-Key`)
 - **Statistics**: Tracking sent/received bytes for each client
 - **Time zones**: Automatic timestamp conversion based on user timezone
 - **Caching**: Caching sound files for playback
@@ -83,6 +83,8 @@ Allows real-time monitoring of WebSocket events:
 ## Usage
 
 ### Connecting to WebSocket
+
+Browser (session cookie after login):
 
 ```javascript
 const socket = io();
@@ -100,7 +102,18 @@ socket.on('connect', function() {
     socket.emit('subscribeActions', ['say', 'notify', 'playsound']);
     socket.emit('subscribeMethods', ['ObjectName.methodName']);
 });
+```
 
+External clients (Node-RED, scripts) — API key of an osysHome user:
+
+```javascript
+const socket = io('https://osys.example', {
+    auth: { apikey: 'YOUR_USER_API_KEY' }
+    // or: query: { apikey: 'YOUR_USER_API_KEY' }
+});
+```
+
+```javascript
 // Handle property change
 socket.on('changeProperty', function(data) {
     console.log('Property changed:', data);
@@ -133,7 +146,7 @@ socket.emit('callMethod', 'ObjectName.methodName', 'WS', false);
 
 ## Version
 
-Current version: **1.1**
+Current version: **1.6**
 
 ## Category
 

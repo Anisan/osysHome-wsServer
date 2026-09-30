@@ -1,5 +1,4 @@
 {
-  "Clients": "Clients",
   "Enable object render debounce": "Enable object render debounce",
   "Enable property change debounce": "Enable property change debounce",
   "Event Filter": "Event Filter",
@@ -11,7 +10,6 @@
   "Render Optimization": "Render Optimization",
   "Resume": "Resume",
   "Subscriptions": "Subscriptions",
-  "Traffic": "Traffic",
   "Transport": "Transport",
   "Websocket": "Websocket"
 }

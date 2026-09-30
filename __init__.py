@@ -44,7 +44,8 @@ from flask_socketio import SocketIO, ConnectionRefusedError
 from app.authentication.handlers import handle_user_required
 
 from flask import render_template, request, send_file, abort
-from flask_login import current_user
+from flask_login import current_user, login_user
+from app.utils import get_user_by_api_key
 from app.database import (
     convert_utc_to_local,
     get_now_to_utc,
@@ -68,7 +69,7 @@ class wsServer(BasePlugin):
         self.title = "Websocket"
         self.description = """Websocket server (SocketIO)"""
         self.category = "System"
-        self.version = "1.5"
+        self.version = "1.6"
         self.actions = ["say", "proxy", "playsound", "widget", "notify"]
         # Dictionary connected clients
         self.connected_clients = {}
@@ -138,12 +139,53 @@ class wsServer(BasePlugin):
         self.socketio.init_app(app)
 
         @self.socketio.on("connect")
-        def handleConnect():
+        def handleConnect(auth=None):
             try:
                 if not current_user.is_authenticated:
-                    ip = request.remote_addr or '?'
-                    security_audit_log('WS_UNAUTHORIZED', ip=ip, endpoint='ws_connect', reason='not_authenticated')
-                    raise ConnectionRefusedError('Unauthorized')
+                    api_key = None
+                    if isinstance(auth, dict):
+                        api_key = (
+                            auth.get("apikey")
+                            or auth.get("apiKey")
+                            or auth.get("token")
+                        )
+                    if not api_key:
+                        api_key = (
+                            request.args.get("apikey")
+                            or request.args.get("apiKey")
+                            or request.headers.get("X-API-Key")
+                        )
+                    ip = request.remote_addr or "?"
+                    if api_key:
+                        user = get_user_by_api_key(api_key)
+                        if user:
+                            login_user(user)
+                            security_audit_log(
+                                "WS_APIKEY_OK",
+                                ip=ip,
+                                endpoint="ws_connect",
+                                username=getattr(user, "username", "?"),
+                            )
+                        else:
+                            security_audit_log(
+                                "WS_APIKEY_INVALID",
+                                ip=ip,
+                                endpoint="ws_connect",
+                                reason="invalid_apikey",
+                            )
+                            raise ConnectionRefusedError("Unauthorized")
+                    else:
+                        security_audit_log(
+                            "WS_UNAUTHORIZED",
+                            ip=ip,
+                            endpoint="ws_connect",
+                            reason="not_authenticated",
+                        )
+                        raise ConnectionRefusedError("Unauthorized")
+
+                if not current_user.is_authenticated:
+                    raise ConnectionRefusedError("Unauthorized")
+
                 self.logger.debug(
                     "Client %s(%s) connected", request.remote_addr, request.sid
                 )
@@ -163,6 +205,8 @@ class wsServer(BasePlugin):
                     "subsActions": [],
                 }
                 self.sendClientsInfo()
+            except ConnectionRefusedError:
+                raise
             except Exception as ex:
                 self.logger.exception(ex, exc_info=True)
 

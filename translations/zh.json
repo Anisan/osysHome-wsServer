@@ -1,5 +1,4 @@
 {
-  "Clients": "客户",
   "Enable object render debounce": "启用对象渲染去抖动",
   "Enable property change debounce": "启用属性更改去抖",
   "Event Filter": "事件过滤器",
@@ -11,7 +10,6 @@
   "Render Optimization": "渲染优化",
   "Resume": "恢复",
   "Subscriptions": "订阅",
-  "Traffic": "交通",
   "Transport": "运输",
   "Websocket": "网络套接字"
 }

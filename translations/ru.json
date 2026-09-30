@@ -1,5 +1,4 @@
 {
-  "Clients": "Клиенты",
   "Enable object render debounce": "Включить debounce рендера объектов",
   "Enable property change debounce": "Включить debounce изменения свойств",
   "Event Filter": "Фильтр событий",
@@ -11,7 +10,6 @@
   "Render Optimization": "Оптимизация рендера",
   "Resume": "Продолжить",
   "Subscriptions": "Подписки",
-  "Traffic": "Трафик",
   "Transport": "Транспорт",
   "Websocket": "Websocket"
 }
